@@ -1,36 +1,91 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# ⚜️ Scout Team Management Application (v1.0.0)
 
-## Getting Started
+Aplikasi web manajemen dan administrasi kegiatan kepramukaan (Scout Team) modern yang dirancang untuk memudahkan pembina dan anggota dalam mengelola presensi kehadiran berbasis QR Code, database anggota, serta panduan materi latihan lengkap dengan rincian logistik (barang wajib & opsional).
 
-First, run the development server:
+---
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+## 📌 Versi Aplikasi & Rilis
+
+- **Versi Saat Ini**: `v1.0.0` (Stable Production Ready)
+- **Status Update Terakhir**: Implementasi Full CRUD Modul Materi, UI Filtering, dan Integrasi Supabase.
+
+---
+
+## 🚀 Fitur Utama
+
+1. **Sistem Presensi & QR Code Scanner**
+   - Presensi kehadiran anggota secara real-time menggunakan pemindaian kamera berbasis QR Code.
+   - Dashboard statistik harian (Hadir, Izin/Sakit, dan Belum Absen).
+2. **Manajemen Anggota (Siswa / Penggalang)**
+   - Administrasi data anggota lengkap dengan filter berdasarkan nama, Nomor Tanda Anggota (NTA), kelas, dan regu penggalang.
+3. **Database Materi & Logistik Latihan**
+   - Panduan modul materi kepramukaan lengkap dengan deskripsi dan rincian alat/barang bawaan.
+   - Dilengkapi indikator status perlengkapan: Mandatory (Wajib) vs Opsional (Tambahan).
+   - Fitur pencarian (search) dan filter berdasarkan kategori materi.
+4. **Manajemen Berbasis Role (Admin & Anggota)**
+   - Akses penuh (CRUD) untuk Pembina/Admin dalam mengelola materi dan anggota.
+
+---
+
+## 🛠️ Tech Stack
+
+- **Frontend**: Next.js (App Router), React, Tailwind CSS, TypeScript
+- **Backend & Database**: Supabase (PostgreSQL & JSONB Data Type)
+- **Authentication**: Custom Session & Role Management via Supabase/Local Auth
+
+---
+
+## ⚙️ Persyaratan Sistem & Instalasi
+
+Pastikan komputer/laptop lu sudah menginstal:
+- Node.js (Versi 18+ direkomendasikan)
+- Package Manager (npm, yarn, atau pnpm)
+
+### Langkah-langkah Instalasi:
+
+1. **Clone repository ini (atau buka folder project di terminal):**
+   ```bash
+   cd d:/scout_team
+   ```
+
+2. **Install dependencies:**
+   ```bash
+   npm install
+   ```
+
+3. **Konfigurasi Environment Variables:**
+   Buat file `.env.local` di root folder project, lalu masukkan konfigurasi Supabase lu:
+   ```env
+   NEXT_PUBLIC_SUPABASE_URL=your_supabase_project_url
+   NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
+   ```
+
+4. **Jalankan server development lokal:**
+   ```bash
+   npm run dev
+   ```
+
+5. **Akses aplikasi di browser:**
+   Buka http://localhost:3000.
+
+---
+
+## 📁 Struktur Folder Utama
+
+```text
+src/
+├── app/                  # Next.js App Router (Halaman & Routing)
+│   ├── materi/           # Modul Database Materi & Logistik
+│   ├── scan/             # Modul Kamera QR Code Scanner Presensi
+│   ├── anggota/          # Modul Manajemen Anggota Pramuka
+│   └── page.tsx          # Dashboard Utama
+├── components/           # Komponen UI Reusable (Header, dll)
+├── services/             # API Service penghubung ke Supabase (materialService, dll)
+├── types/                # Definisi Interface TypeScript (Material, Equipment, dll)
+└── lib/                  # Konfigurasi Supabase & Auth Helper
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+---
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
-
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
-
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## 📝 Lisensi
+Project ini dikembangkan untuk kebutuhan operasional dan pelatihan kepramukaan secara mandiri.
