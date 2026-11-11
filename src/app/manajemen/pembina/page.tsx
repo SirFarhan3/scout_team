@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState, useMemo } from 'react';
+import { message, Modal } from 'antd';
 import Header from '@/components/Header';
 import { authService, UserSessionData } from '@/lib/auth';
 import { pembinaService } from '@/services/pembinaService';
@@ -33,7 +34,7 @@ export default function PembinaManagementPage() {
       }
 
       if (user.role !== 'admin') {
-        alert('Akses Ditolak! Halaman Manajemen Pembina hanya dapat diakses oleh Admin.');
+        message.error('Akses Ditolak! Halaman Manajemen Pembina hanya dapat diakses oleh Admin.');
         window.location.href = '/manajemen/siswa';
         return;
       }
@@ -55,7 +56,7 @@ export default function PembinaManagementPage() {
 
   const handleUpdatePembina = async (input: UpdatePembinaInput) => {
     if (input.id === currentUser?.id) {
-      alert('Anda tidak bisa mengedit akun Anda sendiri yang sedang aktif login!');
+      message.error('Anda tidak bisa mengedit akun Anda sendiri yang sedang aktif login!');
       return;
     }
 
@@ -66,18 +67,25 @@ export default function PembinaManagementPage() {
 
   const handleDeletePembina = async (id: string, targetName: string) => {
     if (id === currentUser?.id) {
-      alert('Anda tidak bisa menghapus akun Anda sendiri yang sedang aktif login!');
+      message.error('Anda tidak bisa menghapus akun Anda sendiri yang sedang aktif login!');
       return;
     }
 
-    if (confirm(`Apakah Anda yakin ingin menghapus akun ${targetName}?`)) {
-      try {
-        await pembinaService.deletePembina(id);
-        setPembinas((prev) => prev.filter((item) => item.id !== id));
-      } catch (error: any) {
-        alert(`Gagal menghapus: ${error?.message || 'Terjadi kesalahan'}`);
-      }
-    }
+    Modal.confirm({
+      title: 'Hapus Pembina',
+      content: `Apakah Anda yakin ingin menghapus akun ${targetName}?`,
+      okText: 'Hapus',
+      okType: 'danger',
+      cancelText: 'Batal',
+      onOk: async () => {
+        try {
+          await pembinaService.deletePembina(id);
+          setPembinas((prev) => prev.filter((item) => item.id !== id));
+        } catch (error: any) {
+          message.error(`Gagal menghapus: ${error?.message || 'Terjadi kesalahan'}`);
+        }
+      },
+    });
   };
 
   // 🎯 Filter berdasarkan Pencarian (Nama/Username) dan Dropdown Role

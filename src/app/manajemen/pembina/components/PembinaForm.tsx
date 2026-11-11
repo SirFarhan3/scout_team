@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { message } from 'antd';
 import { CreatePembinaInput, UpdatePembinaInput, PembinaUser } from '@/types/pembina';
 
 interface PembinaFormProps {
@@ -36,12 +37,12 @@ export default function PembinaForm({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!username || !fullName) {
-      alert('Nama lengkap dan username wajib diisi!');
+      message.error('Nama lengkap dan username wajib diisi!');
       return;
     }
 
     if (!isEditing && !password) {
-      alert('Password wajib diisi untuk akun baru!');
+      message.error('Password wajib diisi untuk akun baru!');
       return;
     }
 
@@ -65,7 +66,7 @@ export default function PembinaForm({
       }
       onSuccess();
     } catch (error: any) {
-      alert(`Gagal menyimpan data: ${error?.message || 'Terjadi kesalahan'}`);
+      message.error(`Gagal menyimpan data: ${error?.message || 'Terjadi kesalahan'}`);
     } finally {
       setSubmitting(false);
     }

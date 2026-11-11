@@ -12,10 +12,9 @@ export default function QuickActions({ isAdmin }: QuickActionsProps) {
       <div className="space-y-2.5">
         <button
           onClick={() => (window.location.href = '/scan')}
-          className="w-full bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold py-3 px-4 rounded-2xl transition flex items-center justify-between shadow-sm shadow-indigo-200"
+          className="w-full bg-green-600 hover:bg-green-700 text-white text-xs font-bold py-3 px-4 rounded-2xl transition flex items-center justify-between shadow-sm shadow-indigo-200"
         >
-          <span>📷 Buka Kamera Scan QR</span>
-          <span>➡️</span>
+          <span>📷 Scan QR / Absensi Manual</span>
         </button>
 
         <button
@@ -23,7 +22,6 @@ export default function QuickActions({ isAdmin }: QuickActionsProps) {
           className="w-full bg-slate-50 hover:bg-slate-100 text-slate-700 text-xs font-bold py-3 px-4 rounded-2xl transition border border-slate-200 flex items-center justify-between"
         >
           <span>👥 Manajemen Anggota</span>
-          <span>➡️</span>
         </button>
 
         {isAdmin && (
@@ -32,15 +30,22 @@ export default function QuickActions({ isAdmin }: QuickActionsProps) {
             className="w-full bg-slate-50 hover:bg-slate-100 text-slate-700 text-xs font-bold py-3 px-4 rounded-2xl transition border border-slate-200 flex items-center justify-between"
           >
             <span>🛡️ Manajemen Pembina</span>
-            <span>➡️</span>
           </button>
         )}
+
         <button
           onClick={() => (window.location.href = '/materi')}
           className="w-full bg-slate-50 hover:bg-slate-100 text-slate-700 text-xs font-bold py-3 px-4 rounded-2xl transition border border-slate-200 flex items-center justify-between"
         >
           <span>🎒 Database Materi & Alat</span>
-          <span>➡️</span>
+        </button>
+
+        {/* Tombol Laporan Nilai yang baru ditambahkan */}
+        <button
+          onClick={() => (window.location.href = '/laporan/nilai')}
+          className="w-full bg-slate-50 hover:bg-slate-100 text-slate-700 text-xs font-bold py-3 px-4 rounded-2xl transition border border-slate-200 flex items-center justify-between"
+        >
+          <span>📊 Laporan Nilai & Kehadiran</span>
         </button>
       </div>
     </div>

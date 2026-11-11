@@ -54,7 +54,7 @@ export default function RecentScansList({ recentScans }: RecentScansListProps) {
         onClick={() => (window.location.href = '/manajemen/siswa')}
         className="w-full bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold py-3 rounded-2xl transition border border-slate-200 mt-4"
       >
-        ⬅️ Kembali ke Manajemen Siswa
+        Manajemen Siswa
       </button>
     </div>
   );

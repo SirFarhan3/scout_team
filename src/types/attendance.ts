@@ -6,7 +6,6 @@ export interface AttendanceRecord {
   recorded_by: string;
   status: AttendanceStatus;
   created_at: string;
-  // Join data
   student?: {
     full_name: string;
     class_name: string;

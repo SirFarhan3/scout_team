@@ -36,7 +36,7 @@ export default function Home() {
 
       const [dashboardStats, attendanceHistory] = await Promise.all([
         dashboardService.getDashboardStats(),
-        attendanceService.getRecentAttendance(5),
+        attendanceService.getUniqueRecentAttendance(5),
       ]);
 
       setStats(dashboardStats);

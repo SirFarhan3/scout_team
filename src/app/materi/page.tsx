@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState, useMemo } from 'react';
+import { message, Modal } from 'antd';
 import Header from '@/components/Header';
 import { materialService } from '@/services/materialService';
 import { Material } from '@/types/material';
@@ -132,19 +133,26 @@ export default function MateriPage() {
       setShowModal(false);
       loadData();
     } catch (err) {
-      alert('Gagal menyimpan data materi.');
+      message.error('Gagal menyimpan data materi.');
     }
   };
 
   const handleDelete = async (id: string) => {
-    if (confirm('Yakin ingin menghapus materi ini?')) {
-      try {
-        await materialService.deleteMaterial(id);
-        loadData();
-      } catch (err) {
-        alert('Gagal menghapus materi.');
-      }
-    }
+    Modal.confirm({
+      title: 'Hapus Materi',
+      content: 'Yakin ingin menghapus materi ini?',
+      okText: 'Hapus',
+      okType: 'danger',
+      cancelText: 'Batal',
+      onOk: async () => {
+        try {
+          await materialService.deleteMaterial(id);
+          loadData();
+        } catch (err) {
+          message.error('Gagal menghapus materi.');
+        }
+      },
+    })
   };
 
   return (

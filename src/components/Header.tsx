@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { message } from 'antd';
 import { useRouter } from 'next/navigation';
 import { authService, UserSessionData } from '@/lib/auth';
 
@@ -31,7 +32,7 @@ export default function Header({
       await authService.logout();
       window.location.href = '/login';
     } catch (error: any) {
-      alert(`Gagal logout: ${error?.message || 'Terjadi kesalahan'}`);
+      message.error(`Gagal logout: ${error?.message || 'Terjadi kesalahan'}`);
     }
   };
 

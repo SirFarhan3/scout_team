@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { message } from 'antd';
 
 import { CreateStudentInput } from '@/types/student';
 
@@ -31,7 +32,7 @@ export default function StudentForm({ onSuccess, onSubmitStudent }: StudentFormP
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!fullName || !className || !groupName) {
-      alert('Nama, Kelas, dan Regu wajib diisi!');
+      message.error('Nama, Kelas, dan Regu wajib diisi!');
       return;
     }
 
@@ -44,12 +45,12 @@ export default function StudentForm({ onSuccess, onSubmitStudent }: StudentFormP
         nta: nta || undefined,
       });
 
-      alert('🎉 Berhasil menambah siswa! QR Code ID di-generate otomatis.');
+      message.success('Berhasil menambah siswa! QR Code ID di-generate otomatis.');
       setFullName('');
       setNta('');
       onSuccess();
     } catch (error: any) {
-      alert(`❌ Gagal menyimpan: ${error.message}`);
+      message.error(`Gagal menyimpan: ${error.message}`);
     } finally {
       setSubmitting(false);
     }

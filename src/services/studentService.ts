@@ -41,5 +41,37 @@ export const studentService = {
     }
 
     return data;
+  },
+  
+  async updateStudent(id: string, studentData: any): Promise<Student> {
+    console.log("Student Data: ", studentData)
+    console.log("ID: ", id)
+    const { data, error } = await supabase
+      .from('students')
+      .update(studentData)
+      .eq('id', id)
+      .select();
+
+    if (error) {
+      console.error('Error updating student:', error.message);
+      throw new Error(error.message);
+    }
+
+    return data && data.length > 0 ? data[0] : studentData;
+  },
+
+  // Hapus siswa berdasarkan ID
+  async deleteStudent(id: string): Promise<boolean> {
+    const { error } = await supabase
+      .from('students')
+      .delete()
+      .eq('id', id);
+
+    if (error) {
+      console.error('Error deleting student:', error.message);
+      throw new Error(error.message);
+    }
+
+    return true;
   }
 };
