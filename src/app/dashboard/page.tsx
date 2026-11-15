@@ -3,15 +3,18 @@
 import { AttendanceRecord } from '@/types/attendance';
 
 interface RecentActivityListProps {
-  recentScans: AttendanceRecord[];
+  recentScans?: AttendanceRecord[]; // Jadikan opsional agar aman jika undefined
 }
 
 export default function RecentActivityList({ recentScans }: RecentActivityListProps) {
+  // Berikan fallback array kosong jika recentScans bernilai undefined/null
+  const scans = recentScans ?? [];
+
   return (
     <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100 space-y-4 md:col-span-2">
       <h2 className="text-base font-bold text-slate-900">📋 Aktivitas Presensi Terbaru</h2>
 
-      {recentScans.length === 0 ? (
+      {scans.length === 0 ? (
         <div className="p-8 text-center border border-dashed border-slate-200 rounded-2xl">
           <p className="text-xs font-semibold text-slate-400">
             Belum ada catatan presensi hari ini.
@@ -19,7 +22,7 @@ export default function RecentActivityList({ recentScans }: RecentActivityListPr
         </div>
       ) : (
         <div className="space-y-2.5">
-          {recentScans.map((scan) => (
+          {scans.map((scan) => (
             <div
               key={scan.id}
               className="bg-slate-50 p-3.5 rounded-2xl border border-slate-200/70 flex items-center justify-between"
@@ -29,7 +32,7 @@ export default function RecentActivityList({ recentScans }: RecentActivityListPr
                   {scan.student?.full_name}
                 </h4>
                 <p className="text-[10px] text-slate-500">
-                  Kelas {scan.student?.class_name || '-'} • {scan.student?.group_name || '-'}
+                  Kelas {scan.student?.class_name || '-'} {scan.student?.group_name || '-'}
                 </p>
               </div>
 
