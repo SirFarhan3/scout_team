@@ -34,18 +34,25 @@ export default function QuickActions({ isAdmin }: QuickActionsProps) {
         )}
 
         <button
-          onClick={() => (window.location.href = '/materi')}
-          className="w-full bg-slate-50 hover:bg-slate-100 text-slate-700 text-xs font-bold py-3 px-4 rounded-2xl transition border border-slate-200 flex items-center justify-between"
-        >
-          <span>🎒 Database Materi & Alat</span>
-        </button>
-
-        {/* Tombol Laporan Nilai yang baru ditambahkan */}
-        <button
           onClick={() => (window.location.href = '/laporan/nilai')}
           className="w-full bg-slate-50 hover:bg-slate-100 text-slate-700 text-xs font-bold py-3 px-4 rounded-2xl transition border border-slate-200 flex items-center justify-between"
         >
           <span>📊 Laporan Nilai & Kehadiran</span>
+        </button>
+
+        <button
+          onClick={() => (window.location.href = '/laporan/log-harian')}
+          className="w-full bg-slate-50 hover:bg-slate-100 text-slate-700 text-xs font-bold py-3 px-4 rounded-2xl transition border border-slate-200 flex items-center justify-between"
+        >
+          <span>📝 Laporan Log Harian</span>
+        </button>
+
+        <button
+          onClick={() => window.location.href = '/menu'}
+          className="w-full bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-bold py-3 px-4 rounded-2xl transition border border-indigo-200 flex items-center justify-between"
+          >
+          <span>🗺️ Lihat Semua Menu Aplikasi</span>
+          <span>→</span>
         </button>
       </div>
     </div>

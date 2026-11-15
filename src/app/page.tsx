@@ -8,7 +8,7 @@ import { attendanceService } from '@/services/attendanceService';
 import { AttendanceRecord } from '@/types/attendance';
 import StatCards from '@/app/dashboard/components/StatCards';
 import QuickActions from '@/app/dashboard/components/QuickActions';
-import RecentActivityList from '@/app/dashboard/components/RecentActivityList';
+import RankReguCard from '@/app/dashboard/components/RankReguCard'; // <--- 1. Import komponen RankReguCard di sini
 
 export default function Home() {
   const [currentUser, setCurrentUser] = useState<UserSessionData | null>(null);
@@ -76,10 +76,17 @@ export default function Home() {
           belumAbsenToday={stats.belumAbsenToday}
         />
 
-        {/* 🚀 Quick Actions & Recent Scans Components */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <QuickActions isAdmin={currentUser?.role === 'admin'} />
-          <RecentActivityList recentScans={recentScans} />
+        {/* 🚀 Quick Actions & Rank Regu Card Components */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-start">
+          {/* Menu Pintasan (Lebar 1 kolom di layar medium/besar) */}
+          <div className="md:col-span-1">
+            <QuickActions isAdmin={currentUser?.role === 'admin'} />
+          </div>
+
+          {/* Leaderboard Regu Terbaik (Lebar 2 kolom mengisi sisa ruang di sebelah kanan) */}
+          <div className="md:col-span-2">
+            <RankReguCard />
+          </div>
         </div>
 
       </div>

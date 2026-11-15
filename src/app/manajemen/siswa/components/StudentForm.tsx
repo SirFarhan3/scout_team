@@ -10,7 +10,7 @@ interface StudentFormProps {
   onSubmitStudent: (studentData: CreateStudentInput) => Promise<any>;
 }
 // Data Master Options untuk Dropdown
-const KELAS_OPTIONS = ['7A', '7B', '7C', '8A', '8B', '8C', '9A', '9B', '9C'];
+const KELAS_OPTIONS = ['6A', '6B', '5A', '5B'];
 const REGU_OPTIONS = [
   'Regu Elang',
   'Regu Garuda',
@@ -20,6 +20,7 @@ const REGU_OPTIONS = [
   'Regu Mawar',
   'Regu Anggrek',
   'Regu Dahlia',
+  'Pasukan Inti'
 ];
 
 export default function StudentForm({ onSuccess, onSubmitStudent }: StudentFormProps) {

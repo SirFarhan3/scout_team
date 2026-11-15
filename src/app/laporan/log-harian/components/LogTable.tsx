@@ -2,6 +2,7 @@
 
 import React from 'react';
 import dayjs from 'dayjs';
+import { Table, Button, Space, Popconfirm, Tag } from 'antd';
 import { EyeOutlined, EditOutlined, DownloadOutlined, DeleteOutlined } from '@ant-design/icons';
 
 interface LogTableProps {
@@ -14,80 +15,103 @@ interface LogTableProps {
 }
 
 export default function LogTable({ logs, loading, onView, onEdit, onDownload, onDelete }: LogTableProps) {
+  const columns = [
+    {
+      title: 'No',
+      key: 'no',
+      width: 60,
+      align: 'center' as const,
+      render: (_: any, __: any, index: number) => (
+        <span className="font-semibold text-slate-600 text-xs">{index + 1}</span>
+      ),
+    },
+    {
+      title: 'Tanggal Kegiatan',
+      dataIndex: 'tanggal',
+      key: 'tanggal',
+      render: (tanggal: string) => (
+        <span className="font-bold text-slate-800 text-xs">
+          {tanggal ? dayjs(tanggal).format('DD MMMM YYYY') : '-'}
+        </span>
+      ),
+    },
+    {
+      title: 'Jumlah Kegiatan',
+      key: 'jumlah',
+      width: 150,
+      align: 'center' as const,
+      render: (_: any, record: any) => {
+        const count = Array.isArray(record.kegiatan) ? record.kegiatan.length : 0;
+        return (
+          <Tag color="geekblue" className="rounded-full px-2.5 py-0.5 text-[11px] font-semibold border-none bg-indigo-50 text-indigo-600">
+            {count} Kegiatan
+          </Tag>
+        );
+      },
+    },
+    {
+      title: 'Aksi',
+      key: 'aksi',
+      width: 180,
+      align: 'center' as const,
+      render: (_: any, record: any) => (
+        <Space size="small">
+          <Button
+            type="text"
+            size="small"
+            icon={<EyeOutlined />}
+            onClick={() => onView(record)}
+            className="text-indigo-600 hover:bg-indigo-50 rounded-lg"
+            title="Lihat / Preview"
+          />
+          <Button
+            type="text"
+            size="small"
+            icon={<EditOutlined />}
+            onClick={() => onEdit(record)}
+            className="text-amber-600 hover:bg-amber-50 rounded-lg"
+            title="Edit Log"
+          />
+          <Button
+            type="text"
+            size="small"
+            icon={<DownloadOutlined />}
+            onClick={() => onDownload(record)}
+            className="text-emerald-600 hover:bg-emerald-50 rounded-lg"
+            title="Download / Print PDF"
+          />
+          <Popconfirm
+            title="Hapus Log Harian?"
+            description="Data yang dihapus tidak dapat dikembalikan."
+            onConfirm={() => onDelete(record.id)}
+            okText="Ya"
+            cancelText="Batal"
+            okButtonProps={{ className: 'bg-rose-600' }}
+          >
+            <Button
+              type="text"
+              size="small"
+              icon={<DeleteOutlined />}
+              className="text-rose-600 hover:bg-rose-50 rounded-lg"
+              title="Hapus Log"
+            />
+          </Popconfirm>
+        </Space>
+      ),
+    },
+  ];
+
   return (
-    <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100 overflow-hidden">
-      <div className="overflow-x-auto">
-        <table className="w-full text-left border-collapse">
-          <thead>
-            <tr className="border-b border-slate-200 text-xs font-bold text-slate-400 uppercase">
-              <th className="py-3 px-4 w-16 text-center">No</th>
-              <th className="py-3 px-4">Tanggal Kegiatan</th>
-              <th className="py-3 px-4 text-center">Jumlah Kegiatan</th>
-              <th className="py-3 px-4 text-center w-48">Aksi</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-slate-100 text-xs">
-            {loading ? (
-              <tr>
-                <td colSpan={4} className="text-center py-8 text-slate-400">Memuat data...</td>
-              </tr>
-            ) : logs.length === 0 ? (
-              <tr>
-                <td colSpan={4} className="text-center py-8 text-slate-400">Belum ada arsip log harian.</td>
-              </tr>
-            ) : (
-              logs.map((item, index) => {
-                const count = Array.isArray(item.kegiatan) ? item.kegiatan.length : 0;
-                return (
-                  <tr key={item.id} className="hover:bg-slate-50/80 transition">
-                    <td className="py-4 px-4 text-center font-semibold text-slate-600">{index + 1}</td>
-                    <td className="py-4 px-4 font-bold text-slate-800">
-                      {dayjs(item.tanggal).format('DD MMMM YYYY')}
-                    </td>
-                    <td className="py-4 px-4 text-center">
-                      <span className="bg-indigo-50 text-indigo-600 font-bold px-2.5 py-1 rounded-full text-[10px]">
-                        {count} Kegiatan
-                      </span>
-                    </td>
-                    <td className="py-4 px-4 text-center">
-                      <div className="flex items-center justify-center gap-1.5">
-                        <button 
-                          onClick={() => onView(item)}
-                          className="p-1.5 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-lg transition"
-                          title="Lihat / Preview"
-                        >
-                          <EyeOutlined />
-                        </button>
-                        <button 
-                          onClick={() => onEdit(item)}
-                          className="p-1.5 bg-amber-50 hover:bg-amber-100 text-amber-600 rounded-lg transition"
-                          title="Edit Log"
-                        >
-                          <EditOutlined />
-                        </button>
-                        <button 
-                          onClick={() => onDownload(item)}
-                          className="p-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-600 rounded-lg transition"
-                          title="Download / Print PDF"
-                        >
-                          <DownloadOutlined />
-                        </button>
-                        <button 
-                          onClick={() => onDelete(item.id)}
-                          className="p-1.5 bg-rose-50 hover:bg-rose-100 text-rose-600 rounded-lg transition"
-                          title="Hapus Log"
-                        >
-                          <DeleteOutlined />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })
-            )}
-          </tbody>
-        </table>
-      </div>
+    <div className="rounded-2xl overflow-hidden border border-slate-200 shadow-sm bg-white">
+      <Table
+        dataSource={logs}
+        columns={columns}
+        rowKey="id"
+        loading={loading}
+        pagination={{ pageSize: 10, size: 'small', showTotal: (total) => `Total ${total} log` }}
+        size="middle"
+        scroll={{ x: 600 }}
+      />
     </div>
   );
 }

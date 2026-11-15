@@ -7,6 +7,11 @@ import { materialService } from '@/services/materialService';
 import { Material } from '@/types/material';
 import { authService, UserSessionData } from '@/lib/auth';
 
+// Import komponen terpisah
+import MaterialCard from './components/MaterialCard';
+import MaterialModal from './components/MaterialModal';
+import AiGeneratorModal from './components/AiGeneratorModal';
+
 export default function MateriPage() {
   const [currentUser, setCurrentUser] = useState<UserSessionData | null>(null);
   const [materials, setMaterials] = useState<Material[]>([]);
@@ -28,6 +33,13 @@ export default function MateriPage() {
     { name: '', isMandatory: true },
   ]);
 
+  // AI Generator State
+  const [showAiModal, setShowAiModal] = useState(false);
+  const [aiTopic, setAiTopic] = useState('');
+  const [aiLevel, setAiLevel] = useState('Penggalang Ramu');
+  const [aiDuration, setAiDuration] = useState('90 Menit');
+  const [isGenerating, setIsGenerating] = useState(false);
+
   useEffect(() => {
     loadData();
   }, []);
@@ -47,13 +59,11 @@ export default function MateriPage() {
     }
   };
 
-  // Ambil daftar kategori unik untuk dropdown filter
   const categories = useMemo(() => {
     const cats = materials.map((m) => m.category);
     return ['Semua Kategori', ...Array.from(new Set(cats))];
   }, [materials]);
 
-  // Filter materi berdasarkan search term & kategori
   const filteredMaterials = useMemo(() => {
     return materials.filter((mat) => {
       const matchesSearch =
@@ -109,6 +119,49 @@ export default function MateriPage() {
     setEquipmentList(equipmentList.filter((_, i) => i !== index));
   };
 
+  const handleGenerateAiContent = async () => {
+    if (!aiTopic.trim()) {
+      message.warning('Mohon masukkan topik atau judul latihan terlebih dahulu!');
+      return;
+    }
+
+    setIsGenerating(true);
+    try {
+      const res = await fetch('/api/material', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          topic: aiTopic,
+          level: aiLevel,
+          duration: aiDuration,
+        }),
+      });
+
+      const result = await res.json();
+
+      if (!result.success) {
+        // Cek jika error karena server penuh/high demand
+        if (result.error && result.error.includes('503')) {
+          throw new Error('Server AI sedang padat (High Demand). Mohon coba beberapa saat lagi ya, bro!');
+        }
+        throw new Error(result.error || 'Terjadi kesalahan pada server AI');
+      }
+
+      setTitle(result.data.title);
+      setCategory(result.data.category);
+      setDescription(result.data.description);
+      setEquipmentList(result.data.equipment || []);
+
+      setIsGenerating(false);
+      setShowAiModal(false);
+      message.success('Berhasil men-generate materi latihan dengan AI!');
+    } catch (error: any) {
+      console.error(error);
+      message.error(error.message || 'Gagal menghubungi server AI');
+      setIsGenerating(false);
+    }
+  };
+
   const handleSubmitForm = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
@@ -132,6 +185,7 @@ export default function MateriPage() {
 
       setShowModal(false);
       loadData();
+      message.success('Data materi berhasil disimpan!');
     } catch (err) {
       message.error('Gagal menyimpan data materi.');
     }
@@ -148,24 +202,24 @@ export default function MateriPage() {
         try {
           await materialService.deleteMaterial(id);
           loadData();
+          message.success('Materi berhasil dihapus.');
         } catch (err) {
           message.error('Gagal menghapus materi.');
         }
       },
-    })
+    });
   };
 
   return (
     <div className="min-h-screen bg-slate-100 text-slate-800 p-4 md:p-8 font-sans">
       <div className="max-w-5xl mx-auto space-y-6">
         
-        {/* Header Global */}
         <Header 
           title="Database Materi & Logistik" 
           subtitle="Panduan materi latihan lengkap dengan daftar barang wajib dan opsional" 
         />
 
-        {/* 🔍 Filter & Search Bar Card */}
+        {/* Filter & Search Bar */}
         <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100 space-y-4">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div>
@@ -184,7 +238,6 @@ export default function MateriPage() {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2 border-t border-slate-100">
-            {/* Input Pencarian */}
             <div className="space-y-1.5">
               <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Cari Materi</label>
               <input
@@ -196,7 +249,6 @@ export default function MateriPage() {
               />
             </div>
 
-            {/* Filter Kategori */}
             <div className="space-y-1.5">
               <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Filter Kategori</label>
               <select
@@ -205,16 +257,14 @@ export default function MateriPage() {
                 className="w-full text-xs p-3 rounded-2xl border border-slate-200 focus:outline-none focus:border-indigo-500 bg-slate-50 font-bold text-slate-700"
               >
                 {categories.map((cat, idx) => (
-                  <option key={idx} value={cat}>
-                    {cat}
-                  </option>
+                  <option key={idx} value={cat}>{cat}</option>
                 ))}
               </select>
             </div>
           </div>
         </div>
 
-        {/* Daftar Materi Grid */}
+        {/* List Materi Grid */}
         {loading ? (
           <div className="text-center py-12 text-xs font-semibold text-slate-400 animate-pulse">
             Memuat Database Materi...
@@ -226,186 +276,50 @@ export default function MateriPage() {
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {filteredMaterials.map((mat) => (
-              <div key={mat.id} className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100 space-y-4 flex flex-col justify-between">
-                <div className="space-y-3">
-                  <div className="flex justify-between items-start gap-2">
-                    <span className="text-[10px] font-black uppercase bg-indigo-50 text-indigo-700 px-2.5 py-1 rounded-full border border-indigo-100">
-                      {mat.category}
-                    </span>
-                  </div>
-
-                  <h3 className="font-extrabold text-base text-slate-900">{mat.title}</h3>
-                  <p className="text-xs text-slate-600 whitespace-pre-line leading-relaxed">
-                    {mat.description}
-                  </p>
-                </div>
-
-                {/* List Barang Bawaan / Alat */}
-                <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200/60 space-y-2">
-                  <h4 className="text-[11px] font-bold text-slate-700 uppercase tracking-wider">
-                    📦 Daftar Alat & Barang Bawaan:
-                  </h4>
-                  {mat.equipment && mat.equipment.length > 0 ? (
-                    <ul className="space-y-1.5">
-                      {mat.equipment.map((item, idx) => (
-                        <li key={idx} className="flex items-center justify-between text-xs">
-                          <span className="text-slate-700 font-medium flex items-center gap-1.5">
-                            <span className="text-[10px]">🔹</span> {item.name}
-                          </span>
-                          <span
-                            className={`text-[10px] font-bold px-2 py-0.5 rounded-md ${
-                              item.isMandatory
-                                ? 'bg-rose-100 text-rose-700 border border-rose-200'
-                                : 'bg-slate-200 text-slate-600'
-                            }`}
-                          >
-                            {item.isMandatory ? 'Mandatory (Wajib)' : 'Opsional'}
-                          </span>
-                        </li>
-                      ))}
-                    </ul>
-                  ) : (
-                    <p className="text-[11px] text-slate-400 italic">Tidak ada alat khusus yang diperlukan.</p>
-                  )}
-                </div>
-
-                {/* 🛠️ Tombol Aksi Admin di Bagian Bawah */}
-                {currentUser?.role === 'admin' && (
-                  <div className="pt-2 border-t border-slate-100 flex items-center justify-end gap-2">
-                    <button
-                      onClick={() => handleOpenEditModal(mat)}
-                      className="bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold px-3.5 py-2 rounded-xl transition flex items-center gap-1.5"
-                    >
-                      <span>✏️ Edit</span>
-                    </button>
-                    <button
-                      onClick={() => handleDelete(mat.id)}
-                      className="bg-rose-50 hover:bg-rose-100 text-rose-600 text-xs font-bold px-3.5 py-2 rounded-xl transition flex items-center gap-1.5"
-                    >
-                      <span>🗑️ Hapus</span>
-                    </button>
-                  </div>
-                )}
-              </div>
+              <MaterialCard
+                key={mat.id}
+                material={mat}
+                currentUser={currentUser}
+                onEdit={handleOpenEditModal}
+                onDelete={handleDelete}
+              />
             ))}
           </div>
         )}
 
-        {/* Modal Form (Tambah / Edit) */}
-        {showModal && (
-          <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-            <div className="bg-white rounded-3xl max-w-lg w-full p-6 space-y-4 shadow-xl max-h-[90vh] overflow-y-auto">
-              <div className="flex justify-between items-center">
-                <h3 className="font-bold text-base text-slate-900">
-                  {isEditing ? '✏️ Edit Materi Latihan' : '➕ Tambah Materi Latihan Baru'}
-                </h3>
-                <button
-                  onClick={() => setShowModal(false)}
-                  className="text-slate-400 hover:text-slate-700 font-bold text-sm"
-                >
-                  ✕
-                </button>
-              </div>
+        {/* Modal Form Tambah/Edit */}
+        <MaterialModal
+          isOpen={showModal}
+          isEditing={isEditing}
+          title={title}
+          category={category}
+          description={description}
+          equipmentList={equipmentList}
+          onClose={() => setShowModal(false)}
+          onSubmit={handleSubmitForm}
+          onTitleChange={setTitle}
+          onCategoryChange={setCategory}
+          onDescriptionChange={setDescription}
+          onAddEquipment={handleAddEquipmentField}
+          onEquipmentChange={handleEquipmentChange}
+          onRemoveEquipment={handleRemoveEquipmentField}
+          onOpenAiModal={() => setShowAiModal(true)}
+        />
 
-              <form onSubmit={handleSubmitForm} className="space-y-4">
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">Judul Materi</label>
-                  <input
-                    type="text"
-                    required
-                    placeholder="Contoh: Teknik Tandu Pramuka Darurat"
-                    value={title}
-                    onChange={(e) => setTitle(e.target.value)}
-                    className="w-full text-xs p-3 rounded-xl border border-slate-200 focus:outline-none focus:border-indigo-500 bg-slate-50"
-                  />
-                </div>
+        {/* Modal AI Generator */}
+        <AiGeneratorModal
+          isOpen={showAiModal}
+          aiTopic={aiTopic}
+          aiLevel={aiLevel}
+          aiDuration={aiDuration}
+          isGenerating={isGenerating}
+          onClose={() => setShowAiModal(false)}
+          onTopicChange={setAiTopic}
+          onLevelChange={setAiLevel}
+          onDurationChange={setAiDuration}
+          onGenerate={handleGenerateAiContent}
+        />
 
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">Kategori</label>
-                  <input
-                    type="text"
-                    required
-                    placeholder="Contoh: Keterampilan / Pionering"
-                    value={category}
-                    onChange={(e) => setCategory(e.target.value)}
-                    className="w-full text-xs p-3 rounded-xl border border-slate-200 focus:outline-none focus:border-indigo-500 bg-slate-50"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">Penjelasan / Deskripsi Materi</label>
-                  <textarea
-                    required
-                    rows={3}
-                    placeholder="Tuliskan langkah-langkah atau panduan materi..."
-                    value={description}
-                    onChange={(e) => setDescription(e.target.value)}
-                    className="w-full text-xs p-3 rounded-xl border border-slate-200 focus:outline-none focus:border-indigo-500 bg-slate-50"
-                  />
-                </div>
-
-                {/* Dinamis Input Equipment & Status Mandatory */}
-                <div className="space-y-2">
-                  <div className="flex justify-between items-center">
-                    <label className="text-xs font-bold text-slate-700">Barang / Alat Bawaan</label>
-                    <button
-                      type="button"
-                      onClick={handleAddEquipmentField}
-                      className="text-[11px] font-bold text-indigo-600 hover:underline"
-                    >
-                      + Tambah Alat
-                    </button>
-                  </div>
-
-                  {equipmentList.map((eq, index) => (
-                    <div key={index} className="flex items-center gap-2">
-                      <input
-                        type="text"
-                        placeholder="Nama Alat (Cth: Tongkat Pramuka)"
-                        value={eq.name}
-                        onChange={(e) => handleEquipmentChange(index, 'name', e.target.value)}
-                        className="flex-1 text-xs p-2.5 rounded-xl border border-slate-200 bg-slate-50"
-                      />
-                      <select
-                        value={eq.isMandatory ? 'true' : 'false'}
-                        onChange={(e) => handleEquipmentChange(index, 'isMandatory', e.target.value === 'true')}
-                        className="text-xs p-2.5 rounded-xl border border-slate-200 bg-slate-50 font-bold"
-                      >
-                        <option value="true">Mandatory</option>
-                        <option value="false">Opsional</option>
-                      </select>
-                      {equipmentList.length > 1 && (
-                        <button
-                          type="button"
-                          onClick={() => handleRemoveEquipmentField(index)}
-                          className="text-rose-500 hover:text-rose-700 px-1 text-xs font-bold"
-                        >
-                          ✕
-                        </button>
-                      )}
-                    </div>
-                  ))}
-                </div>
-
-                <div className="flex justify-end gap-2 pt-2">
-                  <button
-                    type="button"
-                    onClick={() => setShowModal(false)}
-                    className="bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold px-4 py-2.5 rounded-xl transition"
-                  >
-                    Batal
-                  </button>
-                  <button
-                    type="submit"
-                    className="bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold px-5 py-2.5 rounded-xl transition shadow-sm"
-                  >
-                    {isEditing ? 'Simpan Perubahan' : 'Simpan Materi'}
-                  </button>
-                </div>
-              </form>
-            </div>
-          </div>
-        )}
       </div>
     </div>
   );

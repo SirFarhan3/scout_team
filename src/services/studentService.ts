@@ -43,35 +43,32 @@ export const studentService = {
     return data;
   },
   
-  async updateStudent(id: string, studentData: any): Promise<Student> {
-    console.log("Student Data: ", studentData)
-    console.log("ID: ", id)
+  // Di dalam studentService.ts:
+  async updateStudent(id: string, updates: Partial<Student>) {
+    const { data, error } = await supabase
+      .from('students') // Sesuaikan nama tabel Supabase kamu
+      .update(updates)
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (error) throw error;
+    return data;
+  },
+
+  // Hapus siswa berdasarkan ID
+  async deleteStudent(id: string) {
     const { data, error } = await supabase
       .from('students')
-      .update(studentData)
+      .delete()
       .eq('id', id)
       .select();
 
     if (error) {
-      console.error('Error updating student:', error.message);
+      console.error('Supabase Delete Error:', error);
       throw new Error(error.message);
     }
 
-    return data && data.length > 0 ? data[0] : studentData;
-  },
-
-  // Hapus siswa berdasarkan ID
-  async deleteStudent(id: string): Promise<boolean> {
-    const { error } = await supabase
-      .from('students')
-      .delete()
-      .eq('id', id);
-
-    if (error) {
-      console.error('Error deleting student:', error.message);
-      throw new Error(error.message);
-    }
-
-    return true;
+    return data;
   }
 };
