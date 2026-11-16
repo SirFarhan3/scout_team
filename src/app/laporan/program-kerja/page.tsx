@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { message } from 'antd';
 import Header from '@/components/Header';
+import { authService } from '@/lib/auth';
 import {
   ProkerFilterBar,
   ProkerGeneratorModal,
@@ -11,13 +12,7 @@ import {
   ProkerViewModal,
 } from './components';
 import { ProkerItem } from '@/types/program-kerja';
-import { createClient } from '@supabase/supabase-js';
-
-// Inisialisasi Supabase Client
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL || '',
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''
-);
+import { supabase } from '@/lib/supabase';
 
 export default function ProkerTahunanPage() {
   // State untuk melacak apakah sedang mengedit data yang sudah ada
@@ -47,7 +42,13 @@ export default function ProkerTahunanPage() {
 
   // Fetch data dari Supabase saat halaman pertama kali dimuat
   useEffect(() => {
-    fetchProkers();
+    authService.getCurrentUser().then((user) => {
+      if (!user) {
+        window.location.href = '/login';
+        return;
+      }
+      fetchProkers();
+    });
   }, []);
 
   const fetchProkers = async () => {

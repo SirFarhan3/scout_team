@@ -28,6 +28,7 @@ import {
   HistoryOutlined,
 } from '@ant-design/icons';
 import Header from '@/components/Header';
+import { authService } from '@/lib/auth';
 import {
   PointPreset,
   TeamScoreLogItem,
@@ -120,7 +121,13 @@ export default function ManajemenPoinPage() {
   };
 
   useEffect(() => {
-    loadAllData();
+    authService.getCurrentUser().then((user) => {
+      if (!user) {
+        window.location.href = '/login';
+        return;
+      }
+      loadAllData();
+    });
   }, []);
 
   // Tambah Master Poin Baru

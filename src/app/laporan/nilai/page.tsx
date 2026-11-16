@@ -5,6 +5,7 @@ import { Table, Card, Button, Tag, message } from 'antd';
 import { FileExcelOutlined, ReloadOutlined } from '@ant-design/icons';
 import * as XLSX from 'xlsx-js-style';
 import Header from '@/components/Header';
+import { authService } from '@/lib/auth';
 import { attendanceService } from '@/services/attendanceService';
 
 interface ReportRow {
@@ -47,7 +48,13 @@ export default function LaporanNilaiPage() {
   };
 
   useEffect(() => {
-    fetchReportData();
+    authService.getCurrentUser().then((user) => {
+      if (!user) {
+        window.location.href = '/login';
+        return;
+      }
+      fetchReportData();
+    });
   }, []);
 
   // Ambil daftar kelas unik untuk pilihan dropdown filter

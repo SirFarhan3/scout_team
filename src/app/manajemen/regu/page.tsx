@@ -23,6 +23,7 @@ import {
   UserAddOutlined,
 } from '@ant-design/icons';
 import Header from '@/components/Header';
+import { authService } from '@/lib/auth';
 import {
   getBestTeams,
   getBestStudents,
@@ -96,7 +97,13 @@ export default function ManajemenReguPage() {
   };
 
   useEffect(() => {
-    loadData();
+    authService.getCurrentUser().then((user) => {
+      if (!user) {
+        window.location.href = '/login';
+        return;
+      }
+      loadData();
+    });
   }, []);
 
   const handleCreateTeam = async (e: React.FormEvent) => {

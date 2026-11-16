@@ -15,6 +15,7 @@ import {
   FlagOutlined,
 } from '@ant-design/icons';
 import Header from '@/components/Header';
+import { authService } from '@/lib/auth';
 import {
   getBestTeams,
   getBestStudents,
@@ -56,13 +57,19 @@ export default function RankingPage() {
   });
 
   useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const params = new URLSearchParams(window.location.search);
-      if (params.get('tab') === 'student') {
-        setActiveTab('student');
+    authService.getCurrentUser().then((user) => {
+      if (!user) {
+        window.location.href = '/login';
+        return;
       }
-    }
-    loadAllRankings();
+      if (typeof window !== 'undefined') {
+        const params = new URLSearchParams(window.location.search);
+        if (params.get('tab') === 'student') {
+          setActiveTab('student');
+        }
+      }
+      loadAllRankings();
+    });
   }, []);
 
   const loadAllRankings = async () => {

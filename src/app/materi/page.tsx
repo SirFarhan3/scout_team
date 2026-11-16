@@ -51,11 +51,17 @@ export default function MateriPage() {
 
   // Load user & daftar kategori awal
   useEffect(() => {
-    authService.getCurrentUser().then((user) => setCurrentUser(user));
-    materialService
-      .getMaterialCategories()
-      .then((cats) => setCategories(cats))
-      .catch(() => {});
+    authService.getCurrentUser().then((user) => {
+      if (!user) {
+        window.location.href = '/login';
+        return;
+      }
+      setCurrentUser(user);
+      materialService
+        .getMaterialCategories()
+        .then((cats) => setCategories(cats))
+        .catch(() => {});
+    });
   }, []);
 
   // Fungsi query ke DB menggunakan parameter pagination (Page 1: 1-9, Page 2: 10-18, dst.)
@@ -85,8 +91,9 @@ export default function MateriPage() {
   );
 
   useEffect(() => {
+    if (!currentUser) return;
     fetchPaginatedData(currentPage, searchTerm, selectedCategory);
-  }, [currentPage, searchTerm, selectedCategory, fetchPaginatedData]);
+  }, [currentUser, currentPage, searchTerm, selectedCategory, fetchPaginatedData]);
 
   // Saat search atau kategori berubah, kembalikan ke halaman 1
   const handleSearchChange = (val: string) => {

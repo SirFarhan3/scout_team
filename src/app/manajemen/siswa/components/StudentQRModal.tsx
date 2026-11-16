@@ -5,6 +5,7 @@ import { Modal, Button, message } from 'antd';
 import { PrinterOutlined, DownloadOutlined } from '@ant-design/icons';
 import { QRCodeCanvas } from 'qrcode.react';
 import { Student } from '@/types/student';
+import { escapeHtml, isSafePngDataUrl } from '@/lib/sanitize';
 
 interface StudentQRModalProps {
   visible: boolean;
@@ -89,21 +90,24 @@ export default function StudentQRModal({
 
   const handlePrint = () => {
     const dataUrl = buildCardImage();
-    if (!dataUrl) {
+    if (!dataUrl || !isSafePngDataUrl(dataUrl)) {
       message.error('Gagal membuat gambar QR Code.');
       return;
     }
 
-    const win = window.open('', '', 'width=600,height=800');
+    const win = window.open('', '_blank', 'width=600,height=800,noopener,noreferrer');
     if (!win) {
       message.error('Pop-up diblokir browser. Izinkan pop-up untuk mencetak.');
       return;
     }
 
+    win.document.open();
     win.document.write(`
+      <!DOCTYPE html>
       <html>
         <head>
-          <title>Kartu QR - ${student.full_name}</title>
+          <meta charset="utf-8" />
+          <title>Kartu QR - ${escapeHtml(student.full_name)}</title>
           <style>
             @page { size: A5; margin: 1cm; }
             body { margin: 0; display: flex; justify-content: center; align-items: flex-start; background: #fff; }
@@ -111,11 +115,16 @@ export default function StudentQRModal({
           </style>
         </head>
         <body>
-          <img src="${dataUrl}" onload="window.focus(); window.print(); window.close();" />
+          <img src="${dataUrl}" alt="QR ${escapeHtml(student.full_name)}" />
         </body>
       </html>
     `);
     win.document.close();
+    setTimeout(() => {
+      win.focus();
+      win.print();
+      win.close();
+    }, 300);
   };
 
   return (

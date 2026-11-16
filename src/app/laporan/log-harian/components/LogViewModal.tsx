@@ -5,6 +5,7 @@ import { Modal, Button, Table } from 'antd';
 import { PrinterOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import { LogEntry } from '@/types/log-harian';
+import { escapeHtml } from '@/lib/sanitize';
 
 interface LogViewModalProps {
   isOpen: boolean;
@@ -15,17 +16,34 @@ interface LogViewModalProps {
 
 export default function LogViewModal({ isOpen, viewData, onClose, onPrint }: LogViewModalProps) {
   
-  // Fungsi cetak bersih dengan format resmi
+  // Fungsi cetak bersih dengan format resmi & proteksi XSS
   const handleDirectPrint = () => {
-    const printContent = document.getElementById('printable-official-document');
-    if (!printContent) return;
+    const entries = Array.isArray(viewData.entries) ? viewData.entries : [];
+    const formattedDate = viewData.tanggal ? dayjs(viewData.tanggal).format('DD MMMM YYYY') : '-';
+    const rowsHtml =
+      entries.length === 0
+        ? `<tr><td colspan="3" style="text-align: center; color: #666;">Tidak ada data kegiatan.</td></tr>`
+        : entries
+            .map(
+              (item, i) => `
+          <tr>
+            <td class="text-center">${i + 1}.</td>
+            <td>${escapeHtml(item.waktu || '-')}</td>
+            <td>${escapeHtml(item.kegiatan || '-')}</td>
+          </tr>
+        `
+            )
+            .join('');
 
-    const WindowPrt = window.open('', '', 'left=0,top=0,width=900,height=650,toolbar=0,scrollbars=0,status=0');
+    const WindowPrt = window.open('', '_blank', 'left=0,top=0,width=900,height=650,noopener,noreferrer');
     if (WindowPrt) {
+      WindowPrt.document.open();
       WindowPrt.document.write(`
+        <!DOCTYPE html>
         <html>
           <head>
-            <title>Cetak Log Book - ${viewData.tanggal}</title>
+            <meta charset="utf-8" />
+            <title>Cetak Log Book - ${escapeHtml(viewData.tanggal)}</title>
             <style>
               @page {
                 size: A4;
@@ -62,7 +80,24 @@ export default function LogViewModal({ isOpen, viewData, onClose, onPrint }: Log
           </head>
           <body>
             <div class="page-container">
-              ${printContent.innerHTML}
+              <div class="header">
+                <h1>LOG BOOK</h1>
+              </div>
+              <div class="date-label">
+                Tanggal: ${escapeHtml(formattedDate)}
+              </div>
+              <table>
+                <thead>
+                  <tr>
+                    <th style="width: 40px;">No</th>
+                    <th style="width: 120px;">Waktu</th>
+                    <th>Kegiatan</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${rowsHtml}
+                </tbody>
+              </table>
             </div>
           </body>
         </html>

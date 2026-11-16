@@ -4,9 +4,11 @@ import React, { useState, useEffect } from 'react';
 import { Button, Input, Modal, message } from 'antd';
 import { PlusOutlined, SearchOutlined } from '@ant-design/icons';
 import Header from '@/components/Header';
+import { authService } from '@/lib/auth';
 import dayjs from 'dayjs';
 import { getAllLogs, upsertLog, deleteLog, createLog } from '@/services/logService';
 import { LogEntry } from '@/types/log-harian';
+import { escapeHtml } from '@/lib/sanitize';
 
 // Import Komponen dari Direktori Lokal
 import LogTable from './components/LogTable';
@@ -37,7 +39,13 @@ export default function LogHarianPage() {
   };
 
   useEffect(() => {
-    fetchLogs();
+    authService.getCurrentUser().then((user) => {
+      if (!user) {
+        window.location.href = '/login';
+        return;
+      }
+      fetchLogs();
+    });
   }, []);
 
   const handleOpenCreate = () => {
@@ -99,28 +107,31 @@ export default function LogHarianPage() {
     }
   };
 
-  // Fungsi Download / Cetak PDF yang disamakan dengan LogViewModal
+  // Fungsi Download / Cetak PDF yang disamakan dengan LogViewModal (dengan proteksi XSS)
   const handleDownload = (record: any) => {
     const tanggalFormatted = dayjs(record.tanggal).format('DD MMMM YYYY');
     const entries = Array.isArray(record.kegiatan) ? record.kegiatan : [];
 
-    // Buat baris tabel kegiatan secara dinamis
+    // Buat baris tabel kegiatan secara dinamis dengan escapeHtml
     const rowsHtml = entries.length === 0 
       ? `<tr><td colspan="3" style="text-align: center; color: #666;">Tidak ada data kegiatan.</td></tr>`
       : entries.map((item: any, i: number) => `
           <tr>
             <td class="text-center">${i + 1}.</td>
-            <td>${item.waktu || '-'}</td>
-            <td>${item.kegiatan || '-'}</td>
+            <td>${escapeHtml(item.waktu || '-')}</td>
+            <td>${escapeHtml(item.kegiatan || '-')}</td>
           </tr>
         `).join('');
 
-    const WindowPrt = window.open('', '', 'left=0,top=0,width=900,height=650,toolbar=0,scrollbars=0,status=0');
+    const WindowPrt = window.open('', '_blank', 'left=0,top=0,width=900,height=650,noopener,noreferrer');
     if (WindowPrt) {
+      WindowPrt.document.open();
       WindowPrt.document.write(`
+        <!DOCTYPE html>
         <html>
           <head>
-            <title>Cetak Log Book - ${record.tanggal}</title>
+            <meta charset="utf-8" />
+            <title>Cetak Log Book - ${escapeHtml(record.tanggal)}</title>
             <style>
               @page {
                 size: A4;
@@ -162,7 +173,7 @@ export default function LogHarianPage() {
               </div>
 
               <div class="date-label">
-                Tanggal: ${tanggalFormatted}
+                Tanggal: ${escapeHtml(tanggalFormatted)}
               </div>
 
               <table>

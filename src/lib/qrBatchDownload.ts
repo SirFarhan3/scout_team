@@ -1,12 +1,10 @@
 import QRCode from 'qrcode';
 import { Student } from '@/types/student';
+import { escapeHtml, isSafePngDataUrl } from '@/lib/sanitize';
 
 const COLUMNS = 3;
 const ROWS = 4;
 const PER_PAGE = COLUMNS * ROWS; // 12 QR per lembar A4
-
-const escapeHtml = (text: string) =>
-  text.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c] as string));
 
 /**
  * Cetak QR anggota dalam satu/lebih lembar A4 (12 QR per halaman: 3 kolom x 4 baris).
@@ -15,7 +13,7 @@ const escapeHtml = (text: string) =>
  */
 export async function printStudentQrSheet(students: Student[], heading: string): Promise<void> {
   // Buka jendela SEKARANG (sinkron dengan klik) lalu isi setelah QR selesai dibuat
-  const win = window.open('', '_blank', 'width=900,height=1000');
+  const win = window.open('', '_blank', 'width=900,height=1000,noopener,noreferrer');
   if (!win) {
     throw new Error('Pop-up diblokir browser. Izinkan pop-up untuk mencetak QR.');
   }
@@ -32,6 +30,9 @@ export async function printStudentQrSheet(students: Student[], heading: string):
           errorCorrectionLevel: 'M',
           color: { dark: '#000000', light: '#ffffff' },
         });
+        if (!isSafePngDataUrl(dataUrl)) {
+          throw new Error('Format gambar QR tidak valid.');
+        }
         return `
           <div class="card">
             <img src="${dataUrl}" alt="QR ${escapeHtml(student.full_name)}" />

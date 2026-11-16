@@ -4,6 +4,7 @@ import React from 'react';
 import { Modal, Button, Table, Tag } from 'antd';
 import { PrinterOutlined } from '@ant-design/icons';
 import { ProkerItem } from '@/types/program-kerja';
+import { escapeHtml } from '@/lib/sanitize';
 
 interface ProkerViewModalProps {
   isOpen: boolean;
@@ -14,16 +15,42 @@ interface ProkerViewModalProps {
 export default function ProkerViewModal({ isOpen, viewData, onClose }: ProkerViewModalProps) {
   if (!viewData) return null;
 
-  const handleDirectPrint = () => {
-    const printContent = document.getElementById('printable-proker-document');
-    if (!printContent) return;
+  const entries = Array.isArray(viewData.kegiatan) ? viewData.kegiatan : [];
 
-    const WindowPrt = window.open('', '', 'left=0,top=0,width=900,height=650,toolbar=0,scrollbars=0,status=0');
+  const handleDirectPrint = () => {
+    const rowsHtml =
+      entries.length === 0
+        ? `<tr><td colspan="4" style="text-align: center; color: #666;">Tidak ada data program kerja.</td></tr>`
+        : entries
+            .map(
+              (item, i) => `
+          <tr>
+            <td class="text-center">${i + 1}.</td>
+            <td class="text-center"><strong>${escapeHtml(item.pekan_ke)}</strong></td>
+            <td class="text-center">${escapeHtml(item.durasi)}</td>
+            <td>${escapeHtml(item.keterangan_kegiatan)}</td>
+          </tr>
+        `
+            )
+            .join('');
+
+    const printedDate = escapeHtml(
+      new Date().toLocaleDateString('id-ID', {
+        day: 'numeric',
+        month: 'long',
+        year: 'numeric',
+      })
+    );
+
+    const WindowPrt = window.open('', '_blank', 'left=0,top=0,width=900,height=650,noopener,noreferrer');
     if (WindowPrt) {
+      WindowPrt.document.open();
       WindowPrt.document.write(`
+        <!DOCTYPE html>
         <html>
           <head>
-            <title>Cetak Program Kerja - ${viewData.tahun_ajaran}</title>
+            <meta charset="utf-8" />
+            <title>Cetak Program Kerja - ${escapeHtml(viewData.tahun_ajaran)}</title>
             <style>
               @page {
                 size: A4;
@@ -100,7 +127,37 @@ export default function ProkerViewModal({ isOpen, viewData, onClose }: ProkerVie
             </style>
           </head>
           <body>
-            ${printContent.innerHTML}
+            <div>
+              <div class="header">
+                <h1>RANCANGAN PROGRAM KERJA &amp; JADWAL LATIHAN</h1>
+                <p>${escapeHtml((viewData.nama_pangkalan || '').toUpperCase())}</p>
+              </div>
+              <div class="meta-info">
+                <div>TAHUN AJARAN: ${escapeHtml(viewData.tahun_ajaran)} | GOLONGAN: ${escapeHtml((viewData.golongan || '').toUpperCase())}</div>
+              </div>
+              <table>
+                <thead>
+                  <tr>
+                    <th style="width: 40px;">No</th>
+                    <th style="width: 90px;">Pekan</th>
+                    <th style="width: 110px;">Durasi</th>
+                    <th>Keterangan Kegiatan</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${rowsHtml}
+                </tbody>
+              </table>
+              <div class="footer">
+                <div class="signature">
+                  <div>Tangerang, ${printedDate}</div>
+                  <div>Pembina Satuan,</div>
+                  <div class="signature-space"></div>
+                  <div class="signature-line"></div>
+                  <div>NTA. ................................</div>
+                </div>
+              </div>
+            </div>
           </body>
         </html>
       `);
@@ -142,8 +199,6 @@ export default function ProkerViewModal({ isOpen, viewData, onClose }: ProkerVie
       render: (text: string) => <span className="text-slate-700 text-xs">{text}</span>,
     },
   ];
-
-  const entries = Array.isArray(viewData.kegiatan) ? viewData.kegiatan : [];
 
   return (
     <Modal
