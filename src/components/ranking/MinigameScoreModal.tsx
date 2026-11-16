@@ -7,10 +7,15 @@ import {
   ThunderboltFilled,
   TeamOutlined,
   UserOutlined,
+  PlusCircleOutlined,
+  MinusCircleOutlined,
+  SettingOutlined,
 } from '@ant-design/icons';
 import {
   BestTeamResult,
   BestStudentResult,
+  PointPreset,
+  getPointPresets,
   addTeamScore,
   addStudentBonusPoint,
 } from '@/services/scoreService';
@@ -26,25 +31,6 @@ interface MinigameScoreModalProps {
   onSuccess: () => void;
 }
 
-const TEAM_PRESETS = [
-  { label: '🏆 Juara 1 Minigame / Lomba', points: 25, desc: 'Juara 1 Minigame / Lomba Pramuka' },
-  { label: '🥈 Juara 2 Minigame / Lomba', points: 15, desc: 'Juara 2 Minigame / Lomba Pramuka' },
-  { label: '🥉 Juara 3 Minigame / Lomba', points: 10, desc: 'Juara 3 Minigame / Lomba Pramuka' },
-  { label: '📣 Yel-Yel & Kekompakan Terbaik', points: 15, desc: 'Regu dengan Yel-Yel & Kekompakan Terbaik' },
-  { label: '⛺ Pionering Tercepat & Rapi', points: 20, desc: 'Pemenang Tantangan Pionering / Tenda' },
-  { label: '🧭 Kuis Sandi & Semaphore', points: 15, desc: 'Skor Minigame Sandi Morse & Semaphore' },
-  { label: '⚠️ Kurang Kompak / Pelanggaran', points: -10, desc: 'Pengurangan Poin Kedisiplinan Regu' },
-];
-
-const STUDENT_PRESETS = [
-  { label: '🙋 Menjawab Pertanyaan Pembina', points: 5, desc: 'Aktif Menjawab Pertanyaan Materi' },
-  { label: '🎯 Pemenang Kuis / Minigame Individu', points: 10, desc: 'Juara Kuis / Minigame Individu' },
-  { label: '🎖️ Lulus Uji Poin SKU / SKK', points: 10, desc: 'Berhasil Lulus Uji Materi SKU/SKK' },
-  { label: '👕 Atribut Pramuka Lengkap & Rapi', points: 5, desc: 'Kerapian & Kelengkapan Atribut Pramuka' },
-  { label: '🤝 Memimpin Barisan / Membantu Regu', points: 5, desc: 'Inisiatif Memimpin & Membantu Kegiatan' },
-  { label: '⚠️ Atribut Kurang / Kurang Tertib', points: -5, desc: 'Catatan Evaluasi Kedisiplinan Atribut' },
-];
-
 export default function MinigameScoreModal({
   open,
   onClose,
@@ -56,28 +42,66 @@ export default function MinigameScoreModal({
   onSuccess,
 }: MinigameScoreModalProps) {
   const [targetType, setTargetType] = useState<'team' | 'student'>(defaultTargetType);
+  const [actionMode, setActionMode] = useState<'add' | 'deduct'>('add');
   const [selectedTeamId, setSelectedTeamId] = useState<string | undefined>(defaultTeamId);
   const [selectedStudentId, setSelectedStudentId] = useState<string | undefined>(defaultStudentId);
-  const [points, setPoints] = useState<number>(10);
+  const [pointsMagnitude, setPointsMagnitude] = useState<number>(10);
   const [description, setDescription] = useState<string>('');
+  const [presets, setPresets] = useState<PointPreset[]>([]);
+  const [loadingPresets, setLoadingPresets] = useState<boolean>(false);
   const [submitting, setSubmitting] = useState<boolean>(false);
+
+  // Load presets dari database saat modal dibuka atau targetType berganti
+  useEffect(() => {
+    if (!open) return;
+    let mounted = true;
+    setLoadingPresets(true);
+    getPointPresets(targetType)
+      .then((data) => {
+        if (mounted) setPresets(data || []);
+      })
+      .catch(() => {})
+      .finally(() => {
+        if (mounted) setLoadingPresets(false);
+      });
+
+    return () => {
+      mounted = false;
+    };
+  }, [open, targetType]);
 
   useEffect(() => {
     if (open) {
       setTargetType(defaultTargetType);
+      setActionMode('add');
       setSelectedTeamId(defaultTeamId || teams[0]?.id);
       setSelectedStudentId(defaultStudentId || students[0]?.id);
-      setPoints(defaultTargetType === 'team' ? 15 : 5);
+      setPointsMagnitude(defaultTargetType === 'team' ? 15 : 5);
       setDescription('');
     }
   }, [open, defaultTargetType, defaultTeamId, defaultStudentId, teams, students]);
 
-  const handleApplyPreset = (preset: { points: number; desc: string }) => {
-    setPoints(preset.points);
-    setDescription(preset.desc);
+  const handleApplyPreset = (preset: PointPreset) => {
+    setDescription(preset.title);
+    if (preset.points < 0) {
+      setActionMode('deduct');
+      setPointsMagnitude(Math.abs(preset.points));
+    } else {
+      setActionMode('add');
+      setPointsMagnitude(Math.abs(preset.points));
+    }
   };
 
+  // Nilai poin bertanda (+ atau -)
+  const effectivePoints =
+    actionMode === 'deduct' ? -Math.abs(pointsMagnitude) : Math.abs(pointsMagnitude);
+
   const handleSubmit = async () => {
+    if (!pointsMagnitude || pointsMagnitude <= 0) {
+      message.warning('Masukkan jumlah poin lebih dari 0');
+      return;
+    }
+
     try {
       setSubmitting(true);
       if (targetType === 'team') {
@@ -87,10 +111,14 @@ export default function MinigameScoreModal({
         }
         await addTeamScore({
           team_id: selectedTeamId,
-          points,
+          points: effectivePoints,
           description,
         });
-        message.success('Skor minigame / kegiatan regu berhasil ditambahkan!');
+        message.success(
+          actionMode === 'add'
+            ? `Berhasil menambahkan +${Math.abs(effectivePoints)} poin ke regu!`
+            : `Berhasil mengurangi ${effectivePoints} poin dari regu!`
+        );
       } else {
         if (!selectedStudentId) {
           message.warning('Pilih siswa terlebih dahulu');
@@ -98,50 +126,65 @@ export default function MinigameScoreModal({
         }
         await addStudentBonusPoint({
           student_id: selectedStudentId,
-          points,
+          points: effectivePoints,
           description,
         });
-        message.success('Poin keaktifan individu siswa berhasil ditambahkan!');
+        message.success(
+          actionMode === 'add'
+            ? `Berhasil menambahkan +${Math.abs(effectivePoints)} poin ke siswa!`
+            : `Berhasil mengurangi ${effectivePoints} poin dari siswa!`
+        );
       }
 
       onSuccess();
       onClose();
     } catch (err: any) {
-      message.error(err.message || 'Gagal menyimpan skor');
+      message.error(err.message || 'Gagal menyimpan poin');
     } finally {
       setSubmitting(false);
     }
   };
 
-  const presets = targetType === 'team' ? TEAM_PRESETS : STUDENT_PRESETS;
+  const filteredPresets = presets.filter((p) =>
+    actionMode === 'add' ? p.points >= 0 : p.points < 0
+  );
 
   return (
     <Modal
       open={open}
       onCancel={onClose}
       footer={null}
-      width={560}
+      width={600}
       centered
       title={null}
     >
       <div className="space-y-5 font-sans pt-1">
         {/* Header Modal */}
-        <div>
-          <h3 className="text-lg font-extrabold text-slate-900 flex items-center gap-2">
-            <span>🎮</span> Input Skor Minigames & Keaktifan
-          </h3>
-          <p className="text-xs text-slate-500">
-            Berikan poin tambahan dari hasil minigames, kuis, lomba, atau keaktifan latihan.
-          </p>
+        <div className="flex items-start justify-between gap-2 pr-6">
+          <div>
+            <h3 className="text-lg font-extrabold text-slate-900 flex items-center gap-2">
+              <span>🎮</span> Tambah / Kurangi Poin Ranking
+            </h3>
+            <p className="text-xs text-slate-500">
+              Pilih dari katalog poin di database atau masukkan keterangan penilaian manual.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => (window.location.href = '/manajemen/poin')}
+            className="text-[11px] font-bold text-indigo-600 bg-indigo-50 hover:bg-indigo-100 px-3 py-1.5 rounded-xl transition flex items-center gap-1 shrink-0"
+          >
+            <SettingOutlined /> Kelola Master Poin
+          </button>
         </div>
 
-        {/* Toggle Pilih Mode: Regu vs Individu */}
+        {/* 1. Toggle Pilih Target: Regu vs Individu */}
         <div className="grid grid-cols-2 gap-2 bg-slate-100 p-1.5 rounded-2xl">
           <button
             type="button"
             onClick={() => {
               setTargetType('team');
-              setPoints(15);
+              setPointsMagnitude(15);
               setDescription('');
             }}
             className={`py-2.5 px-3 rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition ${
@@ -150,13 +193,13 @@ export default function MinigameScoreModal({
                 : 'text-slate-500 hover:text-slate-800'
             }`}
           >
-            <TeamOutlined /> Skor Regu
+            <TeamOutlined /> Poin Regu
           </button>
           <button
             type="button"
             onClick={() => {
               setTargetType('student');
-              setPoints(5);
+              setPointsMagnitude(5);
               setDescription('');
             }}
             className={`py-2.5 px-3 rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition ${
@@ -165,25 +208,59 @@ export default function MinigameScoreModal({
                 : 'text-slate-500 hover:text-slate-800'
             }`}
           >
-            <UserOutlined /> Keaktifan Individu
+            <UserOutlined /> Poin Individu (Siswa)
           </button>
         </div>
 
-        {/* Pilih Target Regu / Siswa */}
+        {/* 2. Toggle Jenis Aksi: Tambah Poin (+) vs Kurangi Poin (-) */}
+        <div className="grid grid-cols-2 gap-2">
+          <button
+            type="button"
+            onClick={() => {
+              setActionMode('add');
+              setDescription('');
+            }}
+            className={`py-2.5 px-3 rounded-xl text-xs font-extrabold border transition flex items-center justify-center gap-1.5 ${
+              actionMode === 'add'
+                ? 'bg-emerald-600 text-white border-emerald-600 shadow-sm'
+                : 'bg-emerald-50/50 text-emerald-700 border-emerald-200 hover:bg-emerald-50'
+            }`}
+          >
+            <PlusCircleOutlined /> Tambah Poin (+ Reward / Game)
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setActionMode('deduct');
+              setDescription('');
+            }}
+            className={`py-2.5 px-3 rounded-xl text-xs font-extrabold border transition flex items-center justify-center gap-1.5 ${
+              actionMode === 'deduct'
+                ? 'bg-rose-600 text-white border-rose-600 shadow-sm'
+                : 'bg-rose-50/50 text-rose-700 border-rose-200 hover:bg-rose-50'
+            }`}
+          >
+            <MinusCircleOutlined /> Kurangi Poin (- Evaluasi / Sanksi)
+          </button>
+        </div>
+
+        {/* 3. Pilih Target Regu / Siswa */}
         <div>
           <label className="block text-[11px] font-bold text-slate-500 uppercase mb-1.5">
-            {targetType === 'team' ? 'Pilih Regu Penerima Skor' : 'Pilih Siswa Penerima Poin'}
+            {targetType === 'team' ? 'Pilih Regu' : 'Pilih Siswa'}
           </label>
 
           {targetType === 'team' ? (
             <Select
+              showSearch
+              optionFilterProp="label"
               value={selectedTeamId}
               onChange={(val) => setSelectedTeamId(val)}
               placeholder="Pilih regu..."
               className="w-full h-10"
               options={teams.map((t) => ({
                 value: t.id,
-                label: `${t.name} (${t.gender || 'Penggalang'} • Skor Saat Ini: ${t.totalScore} Poin)`,
+                label: `${t.name} (${t.gender || 'Campuran'} • Skor: ${t.totalScore} Poin)`,
               }))}
             />
           ) : (
@@ -196,53 +273,74 @@ export default function MinigameScoreModal({
               className="w-full h-10"
               options={students.map((s) => ({
                 value: s.id,
-                label: `${s.full_name} — Kelas ${s.class_name} (${s.group_name}) • Nilai Aktif: ${s.activeScore}/100`,
+                label: `${s.full_name} — Kelas ${s.class_name} (${s.group_name}) • Aktif: ${s.activeScore}/100 • Total: ${s.totalRankingScore} Poin`,
               }))}
             />
           )}
         </div>
 
-        {/* Preset Cepat Minigames */}
+        {/* 4. Daftar Katalog Poin dari Database */}
         <div>
-          <label className="block text-[11px] font-bold text-slate-500 uppercase mb-1.5">
-            ⚡ Pilih Cepat Minigame / Aktivitas (Opsional)
-          </label>
-          <div className="flex flex-wrap gap-1.5">
-            {presets.map((preset, idx) => (
-              <button
-                key={idx}
-                type="button"
-                onClick={() => handleApplyPreset(preset)}
-                className={`text-[11px] font-semibold px-2.5 py-1.5 rounded-xl border transition ${
-                  description === preset.desc && points === preset.points
-                    ? 'bg-indigo-600 text-white border-indigo-600'
-                    : preset.points >= 0
-                    ? 'bg-slate-50 hover:bg-indigo-50 text-slate-700 border-slate-200'
-                    : 'bg-rose-50 hover:bg-rose-100 text-rose-700 border-rose-200'
-                }`}
-              >
-                {preset.label}{' '}
-                <span className="font-extrabold">
-                  ({preset.points >= 0 ? `+${preset.points}` : preset.points})
-                </span>
-              </button>
-            ))}
+          <div className="flex items-center justify-between mb-1.5">
+            <label className="block text-[11px] font-bold text-slate-500 uppercase">
+              📋 Pilih Katalog Poin dari Database ({filteredPresets.length} Item)
+            </label>
           </div>
+          {loadingPresets ? (
+            <div className="text-xs text-slate-400 py-2">Memuat daftar poin dari database...</div>
+          ) : filteredPresets.length === 0 ? (
+            <div className="text-xs text-slate-400 bg-slate-50 p-3 rounded-xl border border-dashed border-slate-200">
+              Belum ada katalog poin untuk kategori ini. Anda bisa menambahkannya di menu{' '}
+              <a href="/manajemen/poin" className="text-indigo-600 font-bold underline">
+                Manajemen Poin
+              </a>{' '}
+              atau ketik manual di bawah.
+            </div>
+          ) : (
+            <div className="flex flex-wrap gap-1.5 max-h-36 overflow-y-auto pr-1">
+              {filteredPresets.map((preset) => {
+                const isSelected =
+                  description === preset.title &&
+                  pointsMagnitude === Math.abs(preset.points);
+                return (
+                  <button
+                    key={preset.id}
+                    type="button"
+                    onClick={() => handleApplyPreset(preset)}
+                    className={`text-[11px] font-semibold px-2.5 py-1.5 rounded-xl border transition ${
+                      isSelected
+                        ? actionMode === 'add'
+                          ? 'bg-emerald-600 text-white border-emerald-600'
+                          : 'bg-rose-600 text-white border-rose-600'
+                        : preset.points >= 0
+                        ? 'bg-slate-50 hover:bg-emerald-50 text-slate-700 border-slate-200'
+                        : 'bg-rose-50/70 hover:bg-rose-100 text-rose-700 border-rose-200'
+                    }`}
+                  >
+                    {preset.title}{' '}
+                    <span className="font-extrabold">
+                      ({preset.points >= 0 ? `+${preset.points}` : preset.points})
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          )}
         </div>
 
-        {/* Input Deskripsi & Poin */}
+        {/* 5. Input Deskripsi & Poin */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           <div className="sm:col-span-2">
             <label className="block text-[11px] font-bold text-slate-500 uppercase mb-1">
-              Nama Minigame / Keterangan Penilaian
+              Nama Penilaian / Keterangan *
             </label>
             <Input
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               placeholder={
-                targetType === 'team'
-                  ? 'Contoh: Juara 1 Minigame Sandi Morse'
-                  : 'Contoh: Menjawab Kuis Sejarah Pramuka'
+                actionMode === 'add'
+                  ? 'Contoh: Juara 1 Minigame Semaphore'
+                  : 'Contoh: Atribut Tidak Lengkap saat Apel'
               }
               className="rounded-xl h-10 text-xs"
             />
@@ -250,20 +348,29 @@ export default function MinigameScoreModal({
 
           <div>
             <label className="block text-[11px] font-bold text-slate-500 uppercase mb-1">
-              Jumlah Poin
+              Nominal Poin ({actionMode === 'add' ? '+' : '-'}) *
             </label>
             <InputNumber
-              value={points}
-              onChange={(val) => setPoints(Number(val) || 0)}
-              min={-100}
-              max={100}
+              value={pointsMagnitude}
+              onChange={(val) => setPointsMagnitude(Math.max(1, Math.abs(Number(val) || 0)))}
+              min={1}
+              max={500}
               step={5}
+              addonBefore={
+                <span
+                  className={`font-black text-xs ${
+                    actionMode === 'add' ? 'text-emerald-600' : 'text-rose-600'
+                  }`}
+                >
+                  {actionMode === 'add' ? '+' : '−'}
+                </span>
+              }
               className="w-full rounded-xl h-10 flex items-center text-xs font-bold"
             />
           </div>
         </div>
 
-        {/* Tombol Simpan */}
+        {/* 6. Tombol Simpan */}
         <div className="flex justify-end gap-2 pt-3 border-t border-slate-100">
           <Button onClick={onClose} className="rounded-xl h-10 px-4 text-xs font-semibold">
             Batal
@@ -272,14 +379,16 @@ export default function MinigameScoreModal({
             type="primary"
             loading={submitting}
             onClick={handleSubmit}
-            icon={targetType === 'team' ? <TrophyFilled /> : <ThunderboltFilled />}
-            className={`rounded-xl h-10 px-5 text-xs font-bold ${
-              targetType === 'team'
-                ? 'bg-indigo-600 hover:!bg-indigo-700'
-                : 'bg-emerald-600 hover:!bg-emerald-700'
+            icon={actionMode === 'add' ? <TrophyFilled /> : <ThunderboltFilled />}
+            className={`rounded-xl h-10 px-5 text-xs font-bold border-none ${
+              actionMode === 'add'
+                ? 'bg-emerald-600 hover:!bg-emerald-700'
+                : 'bg-rose-600 hover:!bg-rose-700'
             }`}
           >
-            Simpan Poin {targetType === 'team' ? 'Regu' : 'Individu'}
+            {actionMode === 'add'
+              ? `Tambahkan +${pointsMagnitude} Poin`
+              : `Kurangi -${pointsMagnitude} Poin`}
           </Button>
         </div>
       </div>

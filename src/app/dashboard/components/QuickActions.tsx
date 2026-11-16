@@ -26,6 +26,13 @@ export default function QuickActions({ isAdmin }: QuickActionsProps) {
         </button>
 
         <button
+          onClick={() => (window.location.href = '/manajemen/poin')}
+          className="w-full bg-slate-50 hover:bg-slate-100 text-slate-700 text-xs font-bold py-3 px-4 rounded-2xl transition border border-slate-200 flex items-center justify-between"
+        >
+          <span>⚙️ Manajemen Poin (+ / -)</span>
+        </button>
+
+        <button
           onClick={() => (window.location.href = '/manajemen/regu')}
           className="w-full bg-slate-50 hover:bg-slate-100 text-slate-700 text-xs font-bold py-3 px-4 rounded-2xl transition border border-slate-200 flex items-center justify-between"
         >

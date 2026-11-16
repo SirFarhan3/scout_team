@@ -44,6 +44,14 @@ export default function MenuDirectoryPage() {
       color: 'bg-amber-50 border-amber-100 hover:border-amber-300',
     },
     {
+      title: 'Manajemen Poin (+ / -)',
+      description: 'Kelola master katalog poin penambahan (reward/minigame) & pengurangan (sanksi/evaluasi) di database serta riwayat poin.',
+      path: '/manajemen/poin',
+      icon: <BarChartOutlined className="text-xl text-emerald-600" />,
+      badge: 'Master Poin',
+      color: 'bg-emerald-50 border-emerald-100 hover:border-emerald-300',
+    },
+    {
       title: 'Manajemen Regu',
       description: 'Tambahkan regu baru (Putra, Putri, Campuran), kelola anggota regu, dan pantau skor tiap regu.',
       path: '/manajemen/regu',

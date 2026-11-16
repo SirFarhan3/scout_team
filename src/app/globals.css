@@ -1,8 +1,14 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #f1f5f9;
+  --foreground: #0f172a;
+}
+
+html.dark {
+  --background: #0f172a;
+  --foreground: #f8fafc;
+  color-scheme: dark;
 }
 
 @theme inline {
@@ -12,15 +18,81 @@
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
-
 body {
   background: var(--background);
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
+  transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+/* =========================================================
+   GLOBAL DARK MODE OVERRIDES UNTUK KARTU, TABEL, & INPUT
+   ========================================================= */
+
+html.dark .bg-slate-100 {
+  background-color: #0f172a !important;
+}
+
+html.dark .bg-white {
+  background-color: #1e293b !important;
+}
+
+html.dark .bg-slate-50,
+html.dark .bg-slate-50\/70 {
+  background-color: #0f172a !important;
+}
+
+html.dark .text-slate-900,
+html.dark .text-slate-800 {
+  color: #f8fafc !important;
+}
+
+html.dark .text-slate-700,
+html.dark .text-slate-600 {
+  color: #cbd5e1 !important;
+}
+
+html.dark .text-slate-500,
+html.dark .text-slate-400 {
+  color: #94a3b8 !important;
+}
+
+html.dark .border-slate-100,
+html.dark .border-slate-200,
+html.dark .border-slate-200\/60,
+html.dark .border-slate-200\/70,
+html.dark .border-slate-200\/80 {
+  border-color: #334155 !important;
+}
+
+html.dark .shadow-slate-200\/50,
+html.dark .shadow-slate-200\/60 {
+  --tw-shadow-color: rgba(2, 6, 23, 0.5) !important;
+}
+
+html.dark input:not([type="checkbox"]):not([type="radio"]),
+html.dark select,
+html.dark textarea {
+  background-color: #0f172a;
+  color: #f8fafc;
+  border-color: #334155;
+}
+
+html.dark input::placeholder,
+html.dark textarea::placeholder {
+  color: #64748b;
+}
+
+html.dark .from-amber-50\/50,
+html.dark .from-amber-50\/60,
+html.dark .from-amber-50,
+html.dark .from-emerald-50\/60,
+html.dark .from-emerald-50 {
+  --tw-gradient-from: rgba(30, 41, 59, 0.9) !important;
+  --tw-gradient-to: #1e293b !important;
+}
+
+html.dark .via-white,
+html.dark .to-white {
+  --tw-gradient-to: #1e293b !important;
 }

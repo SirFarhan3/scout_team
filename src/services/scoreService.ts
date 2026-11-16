@@ -18,6 +18,35 @@ export interface ScoreHistoryItem {
   created_at: string;
 }
 
+export interface PointPreset {
+  id: string;
+  title: string;
+  target_type: 'team' | 'student';
+  points: number;
+  created_at?: string;
+}
+
+export interface TeamScoreLogItem {
+  id: string;
+  team_id: string;
+  team_name: string;
+  team_gender: string | null;
+  points: number;
+  description: string;
+  created_at: string;
+}
+
+export interface StudentBonusLogItem {
+  id: string;
+  student_id: string;
+  student_name: string;
+  class_name: string;
+  group_name: string;
+  points: number;
+  description: string;
+  created_at: string;
+}
+
 export interface TeamMemberContribution {
   id: string;
   full_name: string;
@@ -505,6 +534,26 @@ export async function addTeamScore(input: {
   return data as ScoreHistoryItem;
 }
 
+export async function updateTeamScore(
+  scoreId: string,
+  input: { points: number; description: string }
+): Promise<ScoreHistoryItem> {
+  const { data, error } = await supabase
+    .from('team_scores')
+    .update({
+      points: Number(input.points) || 0,
+      description: input.description.trim(),
+    })
+    .eq('id', scoreId)
+    .select('id, points, description, created_at')
+    .single();
+
+  if (error) {
+    throw new Error(`Gagal mengubah riwayat skor regu: ${error.message}`);
+  }
+  return data as ScoreHistoryItem;
+}
+
 export async function deleteTeamScore(scoreId: string): Promise<void> {
   const { error } = await supabase.from('team_scores').delete().eq('id', scoreId);
   if (error) {
@@ -536,6 +585,26 @@ export async function addStudentBonusPoint(input: {
   return data as ScoreHistoryItem;
 }
 
+export async function updateStudentBonusPoint(
+  bonusId: string,
+  input: { points: number; description: string }
+): Promise<ScoreHistoryItem> {
+  const { data, error } = await supabase
+    .from('student_bonus_points')
+    .update({
+      points: Number(input.points) || 0,
+      description: input.description.trim(),
+    })
+    .eq('id', bonusId)
+    .select('id, points, description, created_at')
+    .single();
+
+  if (error) {
+    throw new Error(`Gagal mengubah poin keaktifan siswa: ${error.message}`);
+  }
+  return data as ScoreHistoryItem;
+}
+
 export async function deleteStudentBonusPoint(bonusId: string): Promise<void> {
   const { error } = await supabase
     .from('student_bonus_points')
@@ -544,6 +613,159 @@ export async function deleteStudentBonusPoint(bonusId: string): Promise<void> {
   if (error) {
     throw new Error(`Gagal menghapus poin keaktifan siswa: ${error.message}`);
   }
+}
+
+// ==========================================
+// 5. MANAJEMEN MASTER POIN (point_presets) & LOG TRANSAKSI POIN
+// ==========================================
+
+const FALLBACK_POINT_PRESETS: PointPreset[] = [
+  { id: 'fb-t1', title: 'Juara 1 Minigame / Lomba Pramuka', target_type: 'team', points: 25 },
+  { id: 'fb-t2', title: 'Juara 2 Minigame / Lomba Pramuka', target_type: 'team', points: 15 },
+  { id: 'fb-t3', title: 'Juara 3 Minigame / Lomba Pramuka', target_type: 'team', points: 10 },
+  { id: 'fb-t4', title: 'Yel-Yel & Kekompakan Terbaik', target_type: 'team', points: 15 },
+  { id: 'fb-t5', title: 'Pionering / Tenda Tercepat & Rapi', target_type: 'team', points: 20 },
+  { id: 'fb-t6', title: 'Kuis Sandi Morse & Semaphore', target_type: 'team', points: 15 },
+  { id: 'fb-t7', title: 'Pengurangan Kedisiplinan / Kurang Kompak', target_type: 'team', points: -10 },
+  { id: 'fb-t8', title: 'Pelanggaran Aturan Kegiatan Regu', target_type: 'team', points: -15 },
+  { id: 'fb-s1', title: 'Aktif Menjawab Pertanyaan Pembina', target_type: 'student', points: 5 },
+  { id: 'fb-s2', title: 'Pemenang Kuis / Minigame Individu', target_type: 'student', points: 10 },
+  { id: 'fb-s3', title: 'Lulus Uji Poin SKU / SKK', target_type: 'student', points: 10 },
+  { id: 'fb-s4', title: 'Atribut Pramuka Lengkap & Rapi', target_type: 'student', points: 5 },
+  { id: 'fb-s5', title: 'Memimpin Barisan / Membantu Kegiatan', target_type: 'student', points: 5 },
+  { id: 'fb-s6', title: 'Atribut Tidak Lengkap / Kurang Rapi', target_type: 'student', points: -5 },
+  { id: 'fb-s7', title: 'Terlambat Apel / Kurang Tertib', target_type: 'student', points: -10 },
+];
+
+export async function getPointPresets(
+  targetType?: 'team' | 'student'
+): Promise<PointPreset[]> {
+  let query = supabase
+    .from('point_presets')
+    .select('id, title, target_type, points, created_at')
+    .order('points', { ascending: false });
+
+  if (targetType) {
+    query = query.eq('target_type', targetType);
+  }
+
+  const { data, error } = await query;
+
+  // Jika tabel belum dibuat di DB, kembalikan fallback agar UI tetap berfungsi
+  if (error) {
+    console.warn('Menggunakan fallback point_presets:', error.message);
+    return targetType
+      ? FALLBACK_POINT_PRESETS.filter((p) => p.target_type === targetType)
+      : FALLBACK_POINT_PRESETS;
+  }
+
+  return (data || []) as PointPreset[];
+}
+
+export async function createPointPreset(input: {
+  title: string;
+  target_type: 'team' | 'student';
+  points: number;
+}): Promise<PointPreset> {
+  if (!input.title?.trim()) {
+    throw new Error('Nama / deskripsi poin wajib diisi.');
+  }
+
+  const { data, error } = await supabase
+    .from('point_presets')
+    .insert({
+      title: input.title.trim(),
+      target_type: input.target_type,
+      points: Number(input.points) || 0,
+    })
+    .select('id, title, target_type, points, created_at')
+    .single();
+
+  if (error) {
+    throw new Error(`Gagal menambahkan master poin ke database: ${error.message}`);
+  }
+  return data as PointPreset;
+}
+
+export async function updatePointPreset(
+  id: string,
+  input: { title?: string; target_type?: 'team' | 'student'; points?: number }
+): Promise<PointPreset> {
+  const payload: any = {};
+  if (input.title !== undefined) payload.title = input.title.trim();
+  if (input.target_type !== undefined) payload.target_type = input.target_type;
+  if (input.points !== undefined) payload.points = Number(input.points) || 0;
+
+  const { data, error } = await supabase
+    .from('point_presets')
+    .update(payload)
+    .eq('id', id)
+    .select('id, title, target_type, points, created_at')
+    .single();
+
+  if (error) {
+    throw new Error(`Gagal mengubah master poin: ${error.message}`);
+  }
+  return data as PointPreset;
+}
+
+export async function deletePointPreset(id: string): Promise<void> {
+  const { error } = await supabase.from('point_presets').delete().eq('id', id);
+  if (error) {
+    throw new Error(`Gagal menghapus master poin: ${error.message}`);
+  }
+}
+
+export async function getAllTeamScoreLogs(): Promise<TeamScoreLogItem[]> {
+  const { data, error } = await supabase
+    .from('team_scores')
+    .select('id, team_id, points, description, created_at, team:teams(name, gender)')
+    .order('created_at', { ascending: false });
+
+  if (error) {
+    throw new Error(`Gagal memuat riwayat poin regu: ${error.message}`);
+  }
+
+  return ((data as any[]) || []).map((row) => {
+    const teamObj = Array.isArray(row.team) ? row.team[0] : row.team;
+    return {
+      id: row.id,
+      team_id: row.team_id,
+      team_name: teamObj?.name || 'Regu',
+      team_gender: teamObj?.gender || null,
+      points: Number(row.points) || 0,
+      description: row.description || '-',
+      created_at: row.created_at,
+    };
+  });
+}
+
+export async function getAllStudentBonusLogs(): Promise<StudentBonusLogItem[]> {
+  const { data, error } = await supabase
+    .from('student_bonus_points')
+    .select(
+      'id, student_id, points, description, created_at, student:students(full_name, class_name, team:teams(name))'
+    )
+    .order('created_at', { ascending: false });
+
+  if (error) {
+    throw new Error(`Gagal memuat riwayat poin siswa: ${error.message}`);
+  }
+
+  return ((data as any[]) || []).map((row) => {
+    const stObj = Array.isArray(row.student) ? row.student[0] : row.student;
+    const teamObj = Array.isArray(stObj?.team) ? stObj?.team[0] : stObj?.team;
+    return {
+      id: row.id,
+      student_id: row.student_id,
+      student_name: stObj?.full_name || 'Siswa',
+      class_name: stObj?.class_name || '-',
+      group_name: teamObj?.name || '-',
+      points: Number(row.points) || 0,
+      description: row.description || '-',
+      created_at: row.created_at,
+    };
+  });
 }
 
 export const scoreService = {
@@ -556,7 +778,15 @@ export const scoreService = {
   getStudentActiveScore,
   getBestStudents,
   addTeamScore,
+  updateTeamScore,
   deleteTeamScore,
   addStudentBonusPoint,
+  updateStudentBonusPoint,
   deleteStudentBonusPoint,
+  getPointPresets,
+  createPointPreset,
+  updatePointPreset,
+  deletePointPreset,
+  getAllTeamScoreLogs,
+  getAllStudentBonusLogs,
 };

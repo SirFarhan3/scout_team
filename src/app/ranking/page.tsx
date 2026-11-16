@@ -467,6 +467,12 @@ export default function RankingPage() {
               Kelola Regu
             </Button>
             <Button
+              onClick={() => (window.location.href = '/manajemen/poin')}
+              className="rounded-2xl h-10 px-4 text-xs font-bold text-indigo-600 border-indigo-200 hover:bg-indigo-50"
+            >
+              ⚙️ Manajemen Poin
+            </Button>
+            <Button
               type="primary"
               icon={<PlusOutlined />}
               onClick={() =>
