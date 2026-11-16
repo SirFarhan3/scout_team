@@ -2,9 +2,10 @@
 
 import { useEffect, useState, useMemo } from 'react';
 import { message, Segmented } from 'antd';
-import { TableOutlined, AppstoreOutlined } from '@ant-design/icons';
+import { TableOutlined, AppstoreOutlined, QrcodeOutlined } from '@ant-design/icons';
 import Header from '@/components/Header';
 import { authService } from '@/lib/auth';
+import { printStudentQrSheet } from '@/lib/qrBatchDownload';
 import { studentService } from '@/services/studentService';
 import { Student, CreateStudentInput } from '@/types/student';
 import StudentForm from './components/StudentForm';
@@ -21,6 +22,9 @@ export default function StudentManagementPage() {
   // State untuk Cetak QR
   const [selectedQRStudent, setSelectedQRStudent] = useState<Student | null>(null);
   const [isQRModalOpen, setIsQRModalOpen] = useState(false);
+
+  // State untuk Cetak QR massal sesuai filter
+  const [printingQr, setPrintingQr] = useState(false);
 
   // State untuk Modal Edit
   const [editingStudent, setEditingStudent] = useState<Student | null>(null);
@@ -126,6 +130,31 @@ export default function StudentManagementPage() {
     });
   }, [students, searchQuery, selectedClass, selectedGroup]);
 
+  // Cetak QR semua anggota sesuai filter aktif dalam lembar A4 (12 QR / halaman)
+  const handlePrintFilteredQr = async () => {
+    if (filteredStudents.length === 0) {
+      message.warning('Tidak ada anggota pada filter ini.');
+      return;
+    }
+
+    const filterParts = [
+      selectedClass !== 'ALL' ? `Kelas ${selectedClass}` : '',
+      selectedGroup !== 'ALL' ? `Regu ${selectedGroup}` : '',
+      searchQuery.trim() ? `Cari "${searchQuery.trim()}"` : '',
+    ].filter(Boolean);
+    const heading = `QR Anggota - ${filterParts.length ? filterParts.join(' - ') : 'Semua'}`;
+
+    try {
+      setPrintingQr(true);
+      await printStudentQrSheet(filteredStudents, heading);
+    } catch (error: any) {
+      console.error('Gagal cetak QR massal:', error);
+      message.error(error?.message || 'Gagal menyiapkan lembar QR.');
+    } finally {
+      setPrintingQr(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-slate-100 flex items-center justify-center font-sans">
@@ -169,6 +198,16 @@ export default function StudentManagementPage() {
                 ]}
                 className="bg-slate-100 p-1 rounded-2xl"
               />
+
+              <button
+                onClick={handlePrintFilteredQr}
+                disabled={printingQr || filteredStudents.length === 0}
+                title="Cetak QR semua anggota sesuai filter (A4, 12 QR per halaman)"
+                className="w-full sm:w-auto bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-300 disabled:cursor-not-allowed active:scale-95 text-white text-xs font-bold px-5 py-2.5 rounded-2xl shadow-lg shadow-emerald-200 disabled:shadow-none transition flex items-center justify-center gap-2 whitespace-nowrap"
+              >
+                <QrcodeOutlined />
+                {printingQr ? 'Menyiapkan...' : `Cetak QR (${filteredStudents.length})`}
+              </button>
 
               <button
                 onClick={() => setShowForm(!showForm)}
@@ -296,9 +335,9 @@ export default function StudentManagementPage() {
                         </span>
                       </div>
 
-                      <div className="pt-2 border-t border-slate-200/60 flex items-center justify-between text-xs text-slate-500 font-mono">
+                      <div className="pt-2 border-t border-slate-200/60 flex items-center justify-between text-[11px] text-slate-500 font-mono">
                         <span>NTA: {student.nta || '-'}</span>
-                        <span className="bg-white text-slate-700 px-2 py-0.5 rounded border border-slate-200 font-bold shadow-sm">
+                        <span className="bg-white text-slate-700 px-2 py-0.5 rounded border border-slate-200 font-semibold text-[10px] shadow-sm">
                           {student.qr_code_id}
                         </span>
                       </div>

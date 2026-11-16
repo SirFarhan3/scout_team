@@ -1,7 +1,7 @@
 'use client';
 
-import { useEffect, useState, useMemo } from 'react';
-import { message, Modal } from 'antd';
+import { useEffect, useState, useCallback } from 'react';
+import { message, Modal, Pagination } from 'antd';
 import Header from '@/components/Header';
 import { materialService } from '@/services/materialService';
 import { Material } from '@/types/material';
@@ -12,10 +12,19 @@ import MaterialCard from './components/MaterialCard';
 import MaterialModal from './components/MaterialModal';
 import AiGeneratorModal from './components/AiGeneratorModal';
 
+const PAGE_SIZE = 9; // Grid 3x3 maksimal (9 kartu per halaman)
+
 export default function MateriPage() {
   const [currentUser, setCurrentUser] = useState<UserSessionData | null>(null);
   const [materials, setMaterials] = useState<Material[]>([]);
+  const [categories, setCategories] = useState<string[]>(['Semua Kategori']);
   const [loading, setLoading] = useState(true);
+
+  // Pagination State (Server-Side DB Range)
+  const [currentPage, setCurrentPage] = useState<number>(1);
+  const [totalItems, setTotalItems] = useState<number>(0);
+  const [fromRow, setFromRow] = useState<number>(0);
+  const [toRow, setToRow] = useState<number>(0);
 
   // Search & Filter State
   const [searchTerm, setSearchTerm] = useState('');
@@ -40,42 +49,61 @@ export default function MateriPage() {
   const [aiDuration, setAiDuration] = useState('90 Menit');
   const [isGenerating, setIsGenerating] = useState(false);
 
+  // Load user & daftar kategori awal
   useEffect(() => {
-    loadData();
+    authService.getCurrentUser().then((user) => setCurrentUser(user));
+    materialService
+      .getMaterialCategories()
+      .then((cats) => setCategories(cats))
+      .catch(() => {});
   }, []);
 
-  const loadData = async () => {
-    try {
-      setLoading(true);
-      const user = await authService.getCurrentUser();
-      setCurrentUser(user);
+  // Fungsi query ke DB menggunakan parameter pagination (Page 1: 1-9, Page 2: 10-18, dst.)
+  const fetchPaginatedData = useCallback(
+    async (pageToFetch: number, search: string, cat: string) => {
+      try {
+        setLoading(true);
+        const result = await materialService.getPaginatedMaterials({
+          page: pageToFetch,
+          pageSize: PAGE_SIZE,
+          search,
+          category: cat,
+        });
 
-      const data = await materialService.getAllMaterials();
-      setMaterials(data);
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setLoading(false);
-    }
+        setMaterials(result.data);
+        setTotalItems(result.total);
+        setFromRow(result.fromRow);
+        setToRow(result.toRow);
+      } catch (err) {
+        console.error('Gagal memuat materi terpaginasi:', err);
+        message.error('Gagal memuat daftar materi dari database');
+      } finally {
+        setLoading(false);
+      }
+    },
+    []
+  );
+
+  useEffect(() => {
+    fetchPaginatedData(currentPage, searchTerm, selectedCategory);
+  }, [currentPage, searchTerm, selectedCategory, fetchPaginatedData]);
+
+  // Saat search atau kategori berubah, kembalikan ke halaman 1
+  const handleSearchChange = (val: string) => {
+    setSearchTerm(val);
+    setCurrentPage(1);
   };
 
-  const categories = useMemo(() => {
-    const cats = materials.map((m) => m.category);
-    return ['Semua Kategori', ...Array.from(new Set(cats))];
-  }, [materials]);
+  const handleCategoryFilterChange = (val: string) => {
+    setSelectedCategory(val);
+    setCurrentPage(1);
+  };
 
-  const filteredMaterials = useMemo(() => {
-    return materials.filter((mat) => {
-      const matchesSearch =
-        mat.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        mat.description.toLowerCase().includes(searchTerm.toLowerCase());
-      
-      const matchesCategory =
-        selectedCategory === 'Semua Kategori' || mat.category === selectedCategory;
-
-      return matchesSearch && matchesCategory;
-    });
-  }, [materials, searchTerm, selectedCategory]);
+  const refreshAll = async () => {
+    const cats = await materialService.getMaterialCategories().catch(() => ['Semua Kategori']);
+    setCategories(cats);
+    await fetchPaginatedData(currentPage, searchTerm, selectedCategory);
+  };
 
   const handleOpenAddModal = () => {
     setIsEditing(false);
@@ -105,7 +133,11 @@ export default function MateriPage() {
     setEquipmentList([...equipmentList, { name: '', isMandatory: true }]);
   };
 
-  const handleEquipmentChange = (index: number, field: 'name' | 'isMandatory', value: string | boolean) => {
+  const handleEquipmentChange = (
+    index: number,
+    field: 'name' | 'isMandatory',
+    value: string | boolean
+  ) => {
     const updated = [...equipmentList];
     if (field === 'name') {
       updated[index].name = value as string;
@@ -140,17 +172,22 @@ export default function MateriPage() {
       const result = await res.json();
 
       if (!result.success) {
-        // Cek jika error karena server penuh/high demand
         if (result.error && result.error.includes('503')) {
-          throw new Error('Server AI sedang padat (High Demand). Mohon coba beberapa saat lagi ya, bro!');
+          throw new Error(
+            'Server AI sedang padat (High Demand). Mohon coba beberapa saat lagi ya, bro!'
+          );
         }
         throw new Error(result.error || 'Terjadi kesalahan pada server AI');
       }
 
-      setTitle(result.data.title);
-      setCategory(result.data.category);
-      setDescription(result.data.description);
-      setEquipmentList(result.data.equipment || []);
+      setTitle(result.data.title || '');
+      setCategory(result.data.category || '');
+      setDescription(result.data.description || '');
+      setEquipmentList(
+        Array.isArray(result.data.equipment) && result.data.equipment.length > 0
+          ? result.data.equipment
+          : [{ name: '', isMandatory: true }]
+      );
 
       setIsGenerating(false);
       setShowAiModal(false);
@@ -181,13 +218,16 @@ export default function MateriPage() {
           description,
           equipment: validEquipment,
         });
+        setCurrentPage(1);
       }
 
       setShowModal(false);
-      loadData();
+      await refreshAll();
       message.success('Data materi berhasil disimpan!');
-    } catch (err) {
-      message.error('Gagal menyimpan data materi.');
+    } catch (err: any) {
+      console.error('Gagal menyimpan materi:', err);
+      const detail = err?.message || err?.details || '';
+      message.error(`Gagal menyimpan data materi.${detail ? ` ${detail}` : ''}`);
     }
   };
 
@@ -201,7 +241,12 @@ export default function MateriPage() {
       onOk: async () => {
         try {
           await materialService.deleteMaterial(id);
-          loadData();
+          // Jika halaman saat ini tinggal 1 item dan bukan halaman 1, mundur 1 halaman
+          if (materials.length === 1 && currentPage > 1) {
+            setCurrentPage((prev) => prev - 1);
+          } else {
+            await refreshAll();
+          }
           message.success('Materi berhasil dihapus.');
         } catch (err) {
           message.error('Gagal menghapus materi.');
@@ -212,22 +257,28 @@ export default function MateriPage() {
 
   return (
     <div className="min-h-screen bg-slate-100 text-slate-800 p-4 md:p-8 font-sans">
-      <div className="max-w-5xl mx-auto space-y-6">
-        
-        <Header 
-          title="Database Materi & Logistik" 
-          subtitle="Panduan materi latihan lengkap dengan daftar barang wajib dan opsional" 
+      <div className="max-w-6xl mx-auto space-y-6">
+        <Header
+          title="Database Materi & Logistik"
+          subtitle="Panduan materi latihan lengkap dengan daftar barang wajib dan opsional"
         />
 
         {/* Filter & Search Bar */}
         <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100 space-y-4">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div>
-              <h2 className="text-base font-extrabold text-slate-900">Daftar Materi</h2>
-              <p className="text-xs text-slate-500">Cari berdasarkan judul materi atau filter berdasarkan kategori</p>
+              <div className="flex items-center gap-2">
+                <h2 className="text-base font-extrabold text-slate-900">Daftar Materi</h2>
+                <span className="text-[11px] font-bold bg-indigo-50 text-indigo-700 px-2.5 py-0.5 rounded-full border border-indigo-100">
+                  Total {totalItems} Materi
+                </span>
+              </div>
+              <p className="text-xs text-slate-500">
+                Menampilkan maksimal 9 kartu (3×3) per halaman langsung dari query database
+              </p>
             </div>
 
-            {currentUser?.role === 'admin' && (
+            {(currentUser?.role === 'admin' || currentUser?.role === 'pembina') && (
               <button
                 onClick={handleOpenAddModal}
                 className="bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold px-4 py-3 rounded-2xl transition shadow-sm shadow-indigo-100 flex items-center justify-center gap-2 shrink-0"
@@ -239,51 +290,94 @@ export default function MateriPage() {
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2 border-t border-slate-100">
             <div className="space-y-1.5">
-              <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Cari Materi</label>
+              <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                Cari Materi
+              </label>
               <input
                 type="text"
                 placeholder="Cari judul atau isi materi..."
                 value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
+                onChange={(e) => handleSearchChange(e.target.value)}
                 className="w-full text-xs p-3 rounded-2xl border border-slate-200 focus:outline-none focus:border-indigo-500 bg-slate-50 font-medium"
               />
             </div>
 
             <div className="space-y-1.5">
-              <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Filter Kategori</label>
+              <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                Filter Kategori
+              </label>
               <select
                 value={selectedCategory}
-                onChange={(e) => setSelectedCategory(e.target.value)}
+                onChange={(e) => handleCategoryFilterChange(e.target.value)}
                 className="w-full text-xs p-3 rounded-2xl border border-slate-200 focus:outline-none focus:border-indigo-500 bg-slate-50 font-bold text-slate-700"
               >
                 {categories.map((cat, idx) => (
-                  <option key={idx} value={cat}>{cat}</option>
+                  <option key={idx} value={cat}>
+                    {cat}
+                  </option>
                 ))}
               </select>
             </div>
           </div>
         </div>
 
-        {/* List Materi Grid */}
+        {/* List Materi Grid (3x3 = 9 Kartu Maksimal) */}
         {loading ? (
-          <div className="text-center py-12 text-xs font-semibold text-slate-400 animate-pulse">
-            Memuat Database Materi...
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+            {[1, 2, 3, 4, 5, 6].map((n) => (
+              <div
+                key={n}
+                className="bg-white p-6 rounded-3xl border border-slate-100 h-64 animate-pulse flex flex-col justify-between"
+              >
+                <div className="space-y-3">
+                  <div className="w-24 h-4 bg-slate-200 rounded-full" />
+                  <div className="w-3/4 h-5 bg-slate-200 rounded" />
+                  <div className="w-full h-16 bg-slate-100 rounded-xl" />
+                </div>
+                <div className="w-full h-8 bg-slate-100 rounded-xl" />
+              </div>
+            ))}
           </div>
-        ) : filteredMaterials.length === 0 ? (
+        ) : materials.length === 0 ? (
           <div className="bg-white p-12 text-center rounded-3xl border border-dashed border-slate-200">
-            <p className="text-xs font-semibold text-slate-400">Tidak ada materi yang sesuai dengan pencarian atau filter.</p>
+            <p className="text-xs font-semibold text-slate-400">
+              Tidak ada materi yang sesuai dengan pencarian atau filter.
+            </p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {filteredMaterials.map((mat) => (
-              <MaterialCard
-                key={mat.id}
-                material={mat}
-                currentUser={currentUser}
-                onEdit={handleOpenEditModal}
-                onDelete={handleDelete}
+          <div className="space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 items-stretch">
+              {materials.map((mat) => (
+                <MaterialCard
+                  key={mat.id}
+                  material={mat}
+                  currentUser={currentUser}
+                  onEdit={handleOpenEditModal}
+                  onDelete={handleDelete}
+                />
+              ))}
+            </div>
+
+            {/* Pagination Bar */}
+            <div className="bg-white px-6 py-4 rounded-3xl shadow-sm border border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-4">
+              <p className="text-xs font-semibold text-slate-500">
+                Menampilkan data ke-<strong className="text-slate-800">{fromRow}</strong> s/d{' '}
+                <strong className="text-slate-800">{toRow}</strong> dari total{' '}
+                <strong className="text-indigo-600">{totalItems}</strong> materi (Halaman{' '}
+                {currentPage})
+              </p>
+
+              <Pagination
+                current={currentPage}
+                pageSize={PAGE_SIZE}
+                total={totalItems}
+                showSizeChanger={false}
+                onChange={(page) => {
+                  setCurrentPage(page);
+                  window.scrollTo({ top: 0, behavior: 'smooth' });
+                }}
               />
-            ))}
+            </div>
           </div>
         )}
 
@@ -319,7 +413,6 @@ export default function MateriPage() {
           onDurationChange={setAiDuration}
           onGenerate={handleGenerateAiContent}
         />
-
       </div>
     </div>
   );

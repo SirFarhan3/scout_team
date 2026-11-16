@@ -1,4 +1,4 @@
-export type AttendanceStatus = 'Hadir' | 'Izin' | 'Sakit' | 'Tanpa Keterangan';
+export type AttendanceStatus = 'Hadir' | 'Izin' | 'Sakit' | 'Tanpa Keterangan' | 'Tidak Hadir';
 
 export interface AttendanceRecord {
   id: string;
@@ -6,6 +6,7 @@ export interface AttendanceRecord {
   recorded_by: string;
   status: AttendanceStatus;
   created_at: string;
+  alreadyRecorded?: boolean;
   student?: {
     full_name: string;
     class_name: string;

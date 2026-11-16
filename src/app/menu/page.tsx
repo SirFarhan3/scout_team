@@ -10,6 +10,8 @@ import {
   BarChartOutlined, 
   CalendarOutlined, 
   BookOutlined,
+  TrophyOutlined,
+  FlagOutlined,
   ArrowRightOutlined 
 } from '@ant-design/icons';
 
@@ -32,6 +34,22 @@ export default function MenuDirectoryPage() {
       icon: <QrcodeOutlined className="text-xl text-emerald-600" />,
       badge: 'Presensi',
       color: 'bg-emerald-50 border-emerald-100 hover:border-emerald-300',
+    },
+    {
+      title: 'Klasemen Ranking & Minigames',
+      description: 'Lihat klasemen regu terbaik, siswa terbaik, detail perolehan poin, serta input skor minigames dan keaktifan.',
+      path: '/ranking',
+      icon: <TrophyOutlined className="text-xl text-amber-600" />,
+      badge: 'Leaderboard',
+      color: 'bg-amber-50 border-amber-100 hover:border-amber-300',
+    },
+    {
+      title: 'Manajemen Regu',
+      description: 'Tambahkan regu baru (Putra, Putri, Campuran), kelola anggota regu, dan pantau skor tiap regu.',
+      path: '/manajemen/regu',
+      icon: <FlagOutlined className="text-xl text-teal-600" />,
+      badge: 'Database',
+      color: 'bg-teal-50 border-teal-100 hover:border-teal-300',
     },
     {
       title: 'Manajemen Anggota',

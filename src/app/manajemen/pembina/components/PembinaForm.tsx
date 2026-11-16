@@ -88,7 +88,7 @@ export default function PembinaForm({
           </label>
           <input
             type="text"
-            placeholder="Contoh: Kak Farhan Raihan"
+            placeholder="Contoh: Kak Andri Hisbah"
             value={fullName}
             onChange={(e) => setFullName(e.target.value)}
             className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition"
@@ -102,7 +102,7 @@ export default function PembinaForm({
           </label>
           <input
             type="text"
-            placeholder="Contoh: kak_farhan"
+            placeholder="Contoh: kak_Andri"
             value={username}
             onChange={(e) => setUsername(e.target.value)}
             className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition"

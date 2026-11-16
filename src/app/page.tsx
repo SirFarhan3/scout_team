@@ -8,7 +8,8 @@ import { attendanceService } from '@/services/attendanceService';
 import { AttendanceRecord } from '@/types/attendance';
 import StatCards from '@/app/dashboard/components/StatCards';
 import QuickActions from '@/app/dashboard/components/QuickActions';
-import RankReguCard from '@/app/dashboard/components/RankReguCard'; // <--- 1. Import komponen RankReguCard di sini
+import RankReguCard from '@/app/dashboard/components/RankReguCard';
+import RankStudentCard from '@/app/dashboard/components/RankStudentCard';
 
 export default function Home() {
   const [currentUser, setCurrentUser] = useState<UserSessionData | null>(null);
@@ -83,9 +84,10 @@ export default function Home() {
             <QuickActions isAdmin={currentUser?.role === 'admin'} />
           </div>
 
-          {/* Leaderboard Regu Terbaik (Lebar 2 kolom mengisi sisa ruang di sebelah kanan) */}
-          <div className="md:col-span-2">
+          {/* Leaderboard Regu Terbaik & Siswa Terbaik */}
+          <div className="md:col-span-2 space-y-6">
             <RankReguCard />
+            <RankStudentCard />
           </div>
         </div>
 

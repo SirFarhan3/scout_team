@@ -70,12 +70,24 @@ export default function ScanPage() {
         setScanError(null);
 
         const result = await attendanceService.recordAttendanceByQr({
-          qr_code_id: decodedText,
+          qr_code_id: decodedText.trim(),
           recorded_by: currentUser.id,
           status: 'Hadir',
         });
 
         setLastScannedResult(result);
+        
+        if (result.alreadyRecorded) {
+          message.warning({
+            content: `${result.student?.full_name || 'Anggota'} sudah absen hadir hari ini!`,
+            duration: 3,
+          });
+        } else {
+          message.success({
+            content: `Presensi berhasil: ${result.student?.full_name || 'Anggota'} (Hadir)`,
+            duration: 3,
+          });
+        }
         
         // Masukkan ke recentScans tanpa duplikat (pindah ke atas)
         setRecentScans((prev) => {

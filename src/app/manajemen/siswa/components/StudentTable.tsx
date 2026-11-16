@@ -35,9 +35,9 @@ export default function StudentTable({
       title: 'QR Code ID',
       dataIndex: 'qr_code_id',
       key: 'qr_code_id',
-      width: 150,
+      width: 140,
       render: (qrCode: string) => (
-        <span className="font-mono font-bold text-indigo-600 bg-indigo-50 border border-indigo-100 px-2.5 py-1 rounded-xl text-xs">
+        <span className="font-mono font-semibold text-indigo-600 bg-indigo-50 border border-indigo-100 px-2 py-0.5 rounded-lg text-[8px]">
           {qrCode || '-'}
         </span>
       ),

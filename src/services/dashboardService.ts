@@ -13,29 +13,34 @@ export const dashboardService = {
     const todayStart = new Date();
     todayStart.setHours(0, 0, 0, 0);
 
-    // 3. Hitung presensi 'Hadir' hari ini
-    const { count: hadirCount, error: hadirErr } = await supabase
+    // 3. Ambil seluruh presensi hari ini (terbaru lebih dulu)
+    const { data: todayRecords, error: attendanceErr } = await supabase
       .from('attendance')
-      .select('*', { count: 'exact', head: true })
+      .select('student_id, status, created_at')
       .gte('created_at', todayStart.toISOString())
-      .eq('status', 'Hadir');
+      .order('created_at', { ascending: false });
 
-    if (hadirErr) console.error('Error fetching hadir count:', hadirErr);
+    if (attendanceErr) console.error('Error fetching today attendance:', attendanceErr);
 
-    // 4. Hitung presensi 'Izin' atau 'Sakit' hari ini
-    const { count: izinSakitCount, error: izinErr } = await supabase
-      .from('attendance')
-      .select('*', { count: 'exact', head: true })
-      .gte('created_at', todayStart.toISOString())
-      .in('status', ['Izin', 'Sakit']);
+    // 4. Distinct per anggota: tiap anggota hanya dihitung 1x,
+    //    memakai status presensi terbarunya hari ini
+    const latestStatusByStudent = new Map<string, string>();
+    for (const record of todayRecords || []) {
+      if (!latestStatusByStudent.has(record.student_id)) {
+        latestStatusByStudent.set(record.student_id, record.status);
+      }
+    }
 
-    if (izinErr) console.error('Error fetching izin/sakit count:', izinErr);
+    let hadir = 0;
+    let izinSakit = 0;
+    latestStatusByStudent.forEach((status) => {
+      if (status === 'Hadir') hadir += 1;
+      else if (status === 'Izin' || status === 'Sakit') izinSakit += 1;
+    });
 
     const total = totalStudents || 0;
-    const hadir = hadirCount || 0;
-    const izinSakit = izinSakitCount || 0;
 
-    // 5. Hitung sisa anggota yang belum absen (Belum Absen)
+    // 5. Sisa anggota yang belum absen
     const belumAbsen = Math.max(0, total - (hadir + izinSakit));
 
     return {

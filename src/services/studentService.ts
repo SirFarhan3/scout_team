@@ -1,38 +1,86 @@
 import { supabase } from '@/lib/supabase';
 import { CreateStudentInput, Student } from '@/types/student';
 
+// Helper untuk menormalisasi data siswa dari relasi team:teams(id, name, gender)
+function normalizeStudent(s: any): Student {
+  if (!s) return s;
+  const teamObj = Array.isArray(s.team) ? s.team[0] : s.team;
+  return {
+    ...s,
+    group_name: s.group_name || teamObj?.name || '-',
+  };
+}
+
+// Helper untuk mencari atau membuat team berdasarkan nama regu (group_name)
+async function resolveTeamIdByName(groupName?: string): Promise<string | null> {
+  const trimmed = (groupName || '').trim();
+  if (!trimmed || trimmed === '-') return null;
+
+  // 1. Cek apakah regu sudah ada di tabel teams
+  const { data: existing } = await supabase
+    .from('teams')
+    .select('id')
+    .ilike('name', trimmed)
+    .limit(1);
+
+  if (existing && existing.length > 0) {
+    return existing[0].id;
+  }
+
+  // 2. Jika belum ada, buat regu baru di tabel teams
+  const { data: created, error } = await supabase
+    .from('teams')
+    .insert({ name: trimmed })
+    .select('id')
+    .single();
+
+  if (!error && created) {
+    return created.id;
+  }
+
+  return null;
+}
+
 export const studentService = {
-  // Ambil semua data siswa
+  // Ambil semua data siswa beserta relasi nama regu dari tabel teams
   async getAllStudents(): Promise<Student[]> {
     const { data, error } = await supabase
       .from('students')
-      .select('*')
+      .select('*, team:teams(id, name, gender)')
       .order('full_name', { ascending: true });
 
     if (error) {
       throw new Error(error.message || 'Gagal mengambil data siswa');
     }
-    return data || [];
+    return (data || []).map(normalizeStudent);
   },
 
   // Cari siswa berdasarkan QR Code ID (Untuk Scanner)
   async getStudentByQrCode(qrCodeId: string): Promise<Student | null> {
     const { data, error } = await supabase
       .from('students')
-      .select('*')
+      .select('*, team:teams(id, name, gender)')
       .eq('qr_code_id', qrCodeId)
-      .single();
+      .limit(1);
 
-    if (error) return null;
-    return data;
+    if (error || !data || data.length === 0) return null;
+    return normalizeStudent(data[0]);
   },
 
-  // Tambah siswa baru
+  // Tambah siswa baru (otomatis hubungkan ke team_id berdasarkan group_name)
   async createStudent(studentData: CreateStudentInput): Promise<Student> {
+    const { group_name, ...rest } = studentData as any;
+    const teamId = await resolveTeamIdByName(group_name);
+
+    const payload: any = {
+      ...rest,
+      ...(teamId ? { team_id: teamId } : {}),
+    };
+
     const { data, error } = await supabase
       .from('students')
-      .insert([studentData])
-      .select()
+      .insert([payload])
+      .select('*, team:teams(id, name, gender)')
       .single();
 
     if (error) {
@@ -40,20 +88,30 @@ export const studentService = {
       throw new Error(error.message);
     }
 
-    return data;
+    return normalizeStudent(data);
   },
   
-  // Di dalam studentService.ts:
+  // Update data siswa (otomatis hubungkan ke team_id jika group_name diubah)
   async updateStudent(id: string, updates: Partial<Student>) {
+    const { group_name, ...rest } = updates as any;
+    const payload: any = { ...rest };
+
+    if (group_name !== undefined) {
+      const teamId = await resolveTeamIdByName(group_name);
+      if (teamId) {
+        payload.team_id = teamId;
+      }
+    }
+
     const { data, error } = await supabase
-      .from('students') // Sesuaikan nama tabel Supabase kamu
-      .update(updates)
+      .from('students')
+      .update(payload)
       .eq('id', id)
-      .select()
+      .select('*, team:teams(id, name, gender)')
       .single();
 
     if (error) throw error;
-    return data;
+    return normalizeStudent(data);
   },
 
   // Hapus siswa berdasarkan ID

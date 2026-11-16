@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { generateWithAI } from '@/lib/aiService';
+import { normalizeAiMaterial } from '@/lib/normalizeMaterial';
 
 export async function POST(request: Request) {
   try {
@@ -31,7 +32,11 @@ export async function POST(request: Request) {
       .replace(/```/g, '')
       .trim();
 
-    const parsedData = JSON.parse(cleanJsonText);
+    const parsedData = normalizeAiMaterial(JSON.parse(cleanJsonText));
+
+    if (!parsedData.title || !parsedData.description) {
+      throw new Error('Respons AI tidak lengkap (judul/deskripsi kosong). Silakan coba generate ulang.');
+    }
 
     return NextResponse.json({ 
       success: true, 

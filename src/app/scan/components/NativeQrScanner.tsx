@@ -52,8 +52,8 @@ export default function NativeQrScanner({
       const stream = await navigator.mediaDevices.getUserMedia({
         video: {
           facingMode: { ideal: 'environment' },
-          width: { ideal: 640 },
-          height: { ideal: 480 },
+          width: { ideal: 1280 },
+          height: { ideal: 720 },
         },
       });
 
@@ -101,11 +101,11 @@ export default function NativeQrScanner({
 
           const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
           const qrCode = jsQR(imageData.data, imageData.width, imageData.height, {
-            inversionAttempts: 'dontInvert',
+            inversionAttempts: 'attemptBoth',
           });
 
-          if (qrCode && qrCode.data) {
-            handleDetectedCode(qrCode.data);
+          if (qrCode && qrCode.data && qrCode.data.trim()) {
+            handleDetectedCode(qrCode.data.trim());
           }
         }
       }
@@ -194,22 +194,44 @@ export default function NativeQrScanner({
       )}
 
       {lastScannedResult && !scanError && (
-        <div className="bg-emerald-50 border border-emerald-200 text-emerald-800 p-4 rounded-2xl space-y-1 animate-in fade-in duration-300">
-          <div className="flex justify-between items-center">
-            <span className="text-[10px] font-black uppercase bg-emerald-200 text-emerald-800 px-2 py-0.5 rounded">
-              Berhasil Presensi! ✅
-            </span>
-            <span className="text-xs font-mono font-bold">
-              {new Date(lastScannedResult.created_at).toLocaleTimeString('id-ID')}
-            </span>
+        lastScannedResult.alreadyRecorded ? (
+          <div className="bg-amber-50 border border-amber-200 text-amber-900 p-4 rounded-2xl space-y-1.5 animate-in fade-in duration-300">
+            <div className="flex justify-between items-center">
+              <span className="text-[10px] font-black uppercase bg-amber-200 text-amber-800 px-2.5 py-0.5 rounded-full">
+                Sudah Hadir Hari Ini ⚠️
+              </span>
+              <span className="text-xs font-mono font-bold text-amber-800">
+                Pukul {new Date(lastScannedResult.created_at).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })} WIB
+              </span>
+            </div>
+            <h3 className="font-extrabold text-base text-slate-900">
+              {lastScannedResult.student?.full_name}
+            </h3>
+            <p className="text-xs text-amber-800 font-medium">
+              Kelas {lastScannedResult.student?.class_name} • {lastScannedResult.student?.group_name}
+            </p>
+            <p className="text-[11px] text-amber-700 bg-amber-100/70 px-3 py-1.5 rounded-xl font-medium">
+              ℹ️ Anggota ini sudah tercatat hadir hari ini. Tidak ada data duplikat yang disimpan ke database.
+            </p>
           </div>
-          <h3 className="font-extrabold text-base text-slate-900">
-            {lastScannedResult.student?.full_name}
-          </h3>
-          <p className="text-xs text-emerald-700 font-medium">
-            Kelas {lastScannedResult.student?.class_name} • {lastScannedResult.student?.group_name}
-          </p>
-        </div>
+        ) : (
+          <div className="bg-emerald-50 border border-emerald-200 text-emerald-800 p-4 rounded-2xl space-y-1 animate-in fade-in duration-300">
+            <div className="flex justify-between items-center">
+              <span className="text-[10px] font-black uppercase bg-emerald-200 text-emerald-800 px-2 py-0.5 rounded">
+                Berhasil Presensi! ✅
+              </span>
+              <span className="text-xs font-mono font-bold">
+                {new Date(lastScannedResult.created_at).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })} WIB
+              </span>
+            </div>
+            <h3 className="font-extrabold text-base text-slate-900">
+              {lastScannedResult.student?.full_name}
+            </h3>
+            <p className="text-xs text-emerald-700 font-medium">
+              Kelas {lastScannedResult.student?.class_name} • {lastScannedResult.student?.group_name}
+            </p>
+          </div>
+        )
       )}
     </div>
   );
