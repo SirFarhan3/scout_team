@@ -85,9 +85,8 @@ export default function StudentTable({
     {
       title: 'Aksi',
       key: 'aksi',
-      width: 130,
+      width: 120,
       align: 'center' as const,
-      fixed: 'right' as const,
       render: (_: any, record: Student) => (
         <Space size="small">
           {onPrintQR && (

@@ -424,7 +424,7 @@ export default function RankingPage() {
         />
 
         {/* 1. Navigation & Action Bar */}
-        <div className="bg-white p-5 rounded-3xl shadow-sm border border-slate-100 flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4">
+        <div className="bg-white p-4 sm:p-5 rounded-3xl shadow-sm border border-slate-100 flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-4">
           {/* Tab Switcher */}
           <div className="grid grid-cols-2 gap-2 bg-slate-100 p-1.5 rounded-2xl">
             <button
@@ -433,13 +433,13 @@ export default function RankingPage() {
                 setActiveTab('team');
                 setSearchQuery('');
               }}
-              className={`py-2.5 px-5 rounded-xl text-xs font-extrabold flex items-center justify-center gap-2 transition ${
+              className={`py-2.5 px-3 sm:px-5 rounded-xl text-xs font-extrabold flex items-center justify-center gap-1.5 transition ${
                 activeTab === 'team'
                   ? 'bg-indigo-600 text-white shadow-sm'
                   : 'text-slate-600 hover:text-slate-900'
               }`}
             >
-              <TeamOutlined /> Klasemen Regu ({teams.length})
+              <TeamOutlined /> Regu ({teams.length})
             </button>
             <button
               type="button"
@@ -447,13 +447,13 @@ export default function RankingPage() {
                 setActiveTab('student');
                 setSearchQuery('');
               }}
-              className={`py-2.5 px-5 rounded-xl text-xs font-extrabold flex items-center justify-center gap-2 transition ${
+              className={`py-2.5 px-3 sm:px-5 rounded-xl text-xs font-extrabold flex items-center justify-center gap-1.5 transition ${
                 activeTab === 'student'
                   ? 'bg-emerald-600 text-white shadow-sm'
                   : 'text-slate-600 hover:text-slate-900'
               }`}
             >
-              <UserOutlined /> Klasemen Siswa ({students.length})
+              <UserOutlined /> Siswa ({students.length})
             </button>
           </div>
 
@@ -462,22 +462,22 @@ export default function RankingPage() {
             <Button
               icon={<ReloadOutlined spin={loading} />}
               onClick={loadAllRankings}
-              className="rounded-2xl h-10 px-4 text-xs font-semibold"
+              className="flex-1 sm:flex-initial rounded-2xl h-10 px-3.5 text-xs font-semibold"
             >
               Segarkan
             </Button>
             <Button
               icon={<FlagOutlined />}
               onClick={() => (window.location.href = '/manajemen/regu')}
-              className="rounded-2xl h-10 px-4 text-xs font-bold text-slate-700"
+              className="flex-1 sm:flex-initial rounded-2xl h-10 px-3.5 text-xs font-bold text-slate-700"
             >
               Kelola Regu
             </Button>
             <Button
               onClick={() => (window.location.href = '/manajemen/poin')}
-              className="rounded-2xl h-10 px-4 text-xs font-bold text-indigo-600 border-indigo-200 hover:bg-indigo-50"
+              className="flex-1 sm:flex-initial rounded-2xl h-10 px-3.5 text-xs font-bold text-indigo-600 border-indigo-200 hover:bg-indigo-50"
             >
-              ⚙️ Manajemen Poin
+              ⚙️ Master Poin
             </Button>
             <Button
               type="primary"
@@ -490,7 +490,7 @@ export default function RankingPage() {
                   studentId: students[0]?.id,
                 })
               }
-              className="bg-amber-500 hover:!bg-amber-600 border-amber-500 rounded-2xl h-10 px-5 text-xs font-extrabold shadow-md shadow-amber-200/60"
+              className="w-full sm:w-auto bg-amber-500 hover:!bg-amber-600 border-amber-500 rounded-2xl h-10 px-5 text-xs font-extrabold shadow-md shadow-amber-200/60"
             >
               🎮 Input Skor Minigames / Keaktifan
             </Button>

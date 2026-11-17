@@ -36,6 +36,9 @@ export default function StudentManagementPage() {
   const [selectedGroup, setSelectedGroup] = useState('ALL');
 
   useEffect(() => {
+    if (typeof window !== 'undefined' && window.innerWidth < 768) {
+      setViewMode('grid');
+    }
     loadStudents();
   }, []);
 
@@ -188,7 +191,7 @@ export default function StudentManagementPage() {
               </p>
             </div>
 
-            <div className="flex items-center gap-3 w-full sm:w-auto">
+            <div className="flex flex-wrap items-center gap-2.5 w-full sm:w-auto">
               <Segmented
                 value={viewMode}
                 onChange={(val) => setViewMode(val as 'table' | 'grid')}
@@ -203,7 +206,7 @@ export default function StudentManagementPage() {
                 onClick={handlePrintFilteredQr}
                 disabled={printingQr || filteredStudents.length === 0}
                 title="Cetak QR semua anggota sesuai filter (A4, 12 QR per halaman)"
-                className="w-full sm:w-auto bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-300 disabled:cursor-not-allowed active:scale-95 text-white text-xs font-bold px-5 py-2.5 rounded-2xl shadow-lg shadow-emerald-200 disabled:shadow-none transition flex items-center justify-center gap-2 whitespace-nowrap"
+                className="flex-1 sm:flex-initial bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-300 disabled:cursor-not-allowed active:scale-95 text-white text-xs font-bold px-4 py-2.5 rounded-2xl shadow-lg shadow-emerald-200 disabled:shadow-none transition flex items-center justify-center gap-1.5 whitespace-nowrap"
               >
                 <QrcodeOutlined />
                 {printingQr ? 'Menyiapkan...' : `Cetak QR (${filteredStudents.length})`}
@@ -211,7 +214,7 @@ export default function StudentManagementPage() {
 
               <button
                 onClick={() => setShowForm(!showForm)}
-                className="w-full sm:w-auto bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white text-xs font-bold px-5 py-2.5 rounded-2xl shadow-lg shadow-indigo-200 transition flex items-center justify-center gap-2"
+                className="flex-1 sm:flex-initial bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white text-xs font-bold px-4 py-2.5 rounded-2xl shadow-lg shadow-indigo-200 transition flex items-center justify-center gap-1.5 whitespace-nowrap"
               >
                 {showForm ? '❌ Batal' : '➕ Tambah Anggota'}
               </button>

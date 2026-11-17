@@ -22,6 +22,9 @@ export default function PembinaManagementPage() {
   const [selectedRole, setSelectedRole] = useState<string>('ALL');
 
   useEffect(() => {
+    if (typeof window !== 'undefined' && window.innerWidth < 768) {
+      setViewMode('grid');
+    }
     checkAdminAccessAndLoadData();
   }, []);
 
@@ -247,7 +250,7 @@ export default function PembinaManagementPage() {
               </p>
             </div>
 
-            <div className="flex items-center gap-3 w-full sm:w-auto">
+            <div className="flex flex-wrap items-center gap-2.5 w-full sm:w-auto">
               <Segmented
                 value={viewMode}
                 onChange={(val) => setViewMode(val as 'table' | 'grid')}
@@ -264,7 +267,7 @@ export default function PembinaManagementPage() {
                     setEditingPembina(null);
                     setShowForm(!showForm);
                   }}
-                  className="w-full sm:w-auto bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white text-xs font-bold px-5 py-2.5 rounded-2xl shadow-lg shadow-indigo-200 transition flex items-center justify-center gap-2"
+                  className="flex-1 sm:flex-initial bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white text-xs font-bold px-5 py-2.5 rounded-2xl shadow-lg shadow-indigo-200 transition flex items-center justify-center gap-2 whitespace-nowrap"
                 >
                   {showForm || editingPembina ? '❌ Batal' : '➕ Tambah Pembina'}
                 </button>

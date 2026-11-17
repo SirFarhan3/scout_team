@@ -556,12 +556,12 @@ export default function ManajemenPoinPage() {
         />
 
         {/* Top Action & Tab Switcher */}
-        <div className="bg-white p-5 rounded-3xl shadow-sm border border-slate-100 flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4">
-          <div className="grid grid-cols-2 gap-2 bg-slate-100 p-1.5 rounded-2xl">
+        <div className="bg-white p-4 sm:p-5 rounded-3xl shadow-sm border border-slate-100 flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 bg-slate-100 p-1.5 rounded-2xl">
             <button
               type="button"
               onClick={() => setActiveTab('presets')}
-              className={`py-2.5 px-5 rounded-xl text-xs font-extrabold flex items-center justify-center gap-2 transition ${
+              className={`py-2.5 px-4 rounded-xl text-xs font-extrabold flex items-center justify-center gap-2 transition ${
                 activeTab === 'presets'
                   ? 'bg-indigo-600 text-white shadow-sm'
                   : 'text-slate-600 hover:text-slate-900'
@@ -572,13 +572,13 @@ export default function ManajemenPoinPage() {
             <button
               type="button"
               onClick={() => setActiveTab('logs')}
-              className={`py-2.5 px-5 rounded-xl text-xs font-extrabold flex items-center justify-center gap-2 transition ${
+              className={`py-2.5 px-4 rounded-xl text-xs font-extrabold flex items-center justify-center gap-2 transition ${
                 activeTab === 'logs'
                   ? 'bg-emerald-600 text-white shadow-sm'
                   : 'text-slate-600 hover:text-slate-900'
               }`}
             >
-              <HistoryOutlined /> Riwayat Pemberian / Pengurangan Poin (
+              <HistoryOutlined /> Riwayat Transaksi Poin (
               {teamLogs.length + studentLogs.length})
             </button>
           </div>
@@ -587,14 +587,14 @@ export default function ManajemenPoinPage() {
             <Button
               icon={<ReloadOutlined spin={loading} />}
               onClick={loadAllData}
-              className="rounded-2xl h-10 px-4 text-xs font-semibold"
+              className="flex-1 sm:flex-initial rounded-2xl h-10 px-4 text-xs font-semibold"
             >
               Segarkan
             </Button>
             <Button
               icon={<TrophyFilled />}
               onClick={() => (window.location.href = '/ranking')}
-              className="rounded-2xl h-10 px-4 text-xs font-bold text-indigo-600 border-indigo-200"
+              className="flex-1 sm:flex-initial rounded-2xl h-10 px-4 text-xs font-bold text-indigo-600 border-indigo-200"
             >
               Lihat Ranking
             </Button>
@@ -602,7 +602,7 @@ export default function ManajemenPoinPage() {
               type="primary"
               icon={<PlusOutlined />}
               onClick={() => setShowGivePointModal(true)}
-              className="bg-amber-500 hover:!bg-amber-600 border-amber-500 rounded-2xl h-10 px-5 text-xs font-extrabold shadow-md shadow-amber-200/60"
+              className="w-full sm:w-auto bg-amber-500 hover:!bg-amber-600 border-amber-500 rounded-2xl h-10 px-5 text-xs font-extrabold shadow-md shadow-amber-200/60"
             >
               ⚡ Beri / Kurangi Poin Sekarang
             </Button>
