@@ -1,5 +1,5 @@
 import { supabase } from '@/lib/supabase';
-import { isAllowedRole, AllowedRole } from '@/lib/sanitize';
+import { isAllowedRole, AllowedRole, assertSafeText } from '@/lib/sanitize';
 
 export interface UserSessionData {
   id: string;
@@ -13,7 +13,7 @@ const SESSION_KEY = 'scout_session';
 export const authService = {
   // Login menggunakan Username & Password
   async login(username: string, pass: string): Promise<UserSessionData> {
-    const cleanUsername = (username || '').trim();
+    const cleanUsername = assertSafeText(username, 'Username', 50);
     if (!cleanUsername || !pass) {
       throw new Error('Username dan password wajib diisi!');
     }

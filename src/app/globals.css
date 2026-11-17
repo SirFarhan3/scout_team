@@ -1,21 +1,105 @@
 @import "tailwindcss";
 
 :root {
-  --background: #f1f5f9;
-  --foreground: #0f172a;
+  --background: #f5f7fc;
+  --foreground: #1e293b;
 }
 
 html.dark {
-  --background: #0f172a;
-  --foreground: #f8fafc;
+  --background: #0f1420;
+  --foreground: #f1f5f9;
   color-scheme: dark;
 }
 
+/* =========================================================
+   LIGHT MODE: FRESH & CHEERFUL PASTEL PALETTE
+   Warna pastel yang hidup, cerah lembut, tidak pucat & tidak silau
+   ========================================================= */
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
+
+  /* Pastel Periwinkle / Lavender Blue */
+  --color-indigo-50: #eef2ff;
+  --color-indigo-100: #e0e7ff;
+  --color-indigo-200: #c7d2fe;
+  --color-indigo-300: #a5b4fc;
+  --color-indigo-400: #818cf8;
+  --color-indigo-500: #6870f0;
+  --color-indigo-600: #5b5fc7;
+  --color-indigo-700: #4b4ea8;
+  --color-indigo-800: #3d408a;
+  --color-indigo-900: #333670;
+
+  /* Pastel Mint / Seafoam Green */
+  --color-emerald-50: #ecfdf5;
+  --color-emerald-100: #d1fae5;
+  --color-emerald-200: #a7f3d0;
+  --color-emerald-300: #6ee7b7;
+  --color-emerald-400: #3fd19c;
+  --color-emerald-500: #2bb585;
+  --color-emerald-600: #229e73;
+  --color-emerald-700: #1b805d;
+  --color-emerald-800: #16654a;
+  --color-emerald-900: #13523d;
+
+  --color-green-50: #ecfdf5;
+  --color-green-100: #d1fae5;
+  --color-green-200: #a7f3d0;
+  --color-green-500: #2bb585;
+  --color-green-600: #229e73;
+  --color-green-700: #1b805d;
+  --color-green-800: #16654a;
+
+  /* Pastel Honey / Warm Peach Gold */
+  --color-amber-50: #fffbeb;
+  --color-amber-100: #fef3c7;
+  --color-amber-200: #fde68a;
+  --color-amber-300: #fcd34d;
+  --color-amber-400: #f6b93b;
+  --color-amber-500: #eba028;
+  --color-amber-600: #d48817;
+  --color-amber-700: #b06c10;
+  --color-amber-800: #8f5610;
+  --color-amber-900: #754610;
+
+  /* Pastel Coral / Sakura Blossom Pink */
+  --color-rose-50: #fff1f2;
+  --color-rose-100: #ffe4e6;
+  --color-rose-200: #fecdd3;
+  --color-rose-300: #fda4af;
+  --color-rose-400: #f77e91;
+  --color-rose-500: #ed647a;
+  --color-rose-600: #df4f67;
+  --color-rose-700: #be3b52;
+  --color-rose-800: #9f3045;
+  --color-rose-900: #862b3d;
+}
+
+/* =========================================================
+   DARK MODE: LUMINOUS MIDNIGHT PASTEL PALETTE
+   Warna pastel yang bercahaya lembut di atas latar belakang gelap
+   ========================================================= */
+html.dark {
+  --color-indigo-500: #7c83f7;
+  --color-indigo-600: #6c74e8;
+  --color-indigo-700: #5b62cf;
+
+  --color-emerald-500: #38c493;
+  --color-emerald-600: #2eb082;
+  --color-emerald-700: #24966e;
+
+  --color-green-500: #38c493;
+  --color-green-600: #2eb082;
+  --color-green-700: #24966e;
+
+  --color-amber-500: #f2ae38;
+  --color-amber-600: #de9b26;
+
+  --color-rose-500: #f27289;
+  --color-rose-600: #e05a72;
 }
 
 html,
@@ -31,13 +115,43 @@ body {
   transition: background-color 0.2s ease, color 0.2s ease;
 }
 
+/* Light Mode: Latar belakang halaman pearl-pastel lembut dengan kartu putih bersih */
+html:not(.dark) .bg-slate-100 {
+  background-color: #f4f7fc !important;
+}
+
+html:not(.dark) .bg-white {
+  background-color: #ffffff !important;
+}
+
+html:not(.dark) .bg-slate-50 {
+  background-color: #f8fafd !important;
+}
+
+/* Bayangan lembut pastel di Light Mode */
+html:not(.dark) .shadow-indigo-100,
+html:not(.dark) .shadow-indigo-200,
+html:not(.dark) .shadow-indigo-300\/60 {
+  --tw-shadow-color: rgba(91, 95, 199, 0.16) !important;
+}
+
+html:not(.dark) .shadow-emerald-200,
+html:not(.dark) .shadow-emerald-300\/60,
+html:not(.dark) .shadow-green-200 {
+  --tw-shadow-color: rgba(34, 158, 115, 0.16) !important;
+}
+
+html:not(.dark) .shadow-amber-200,
+html:not(.dark) .shadow-amber-200\/60 {
+  --tw-shadow-color: rgba(235, 160, 40, 0.18) !important;
+}
+
 /* Ruang aman untuk Mobile Bottom Navigation Bar di layar HP (< 768px) */
 @media (max-width: 767px) {
   body {
     padding-bottom: 5rem;
   }
 
-  /* Optimasi ukuran Modal Ant Design di layar HP */
   .ant-modal {
     max-width: calc(100vw - 24px) !important;
     margin: 12px auto !important;
@@ -48,7 +162,6 @@ body {
     border-radius: 20px !important;
   }
 
-  /* Optimasi Tabel Ant Design di layar HP agar hemat ruang & nyaman di-swipe */
   .ant-table-wrapper .ant-table-thead > tr > th,
   .ant-table-wrapper .ant-table-tbody > tr > td {
     padding: 10px 10px !important;
@@ -60,7 +173,6 @@ body {
     -webkit-overflow-scrolling: touch;
   }
 
-  /* Pagination Ant Design rapi di layar kecil */
   .ant-pagination {
     display: flex;
     flex-wrap: wrap;
@@ -70,26 +182,26 @@ body {
 }
 
 /* =========================================================
-   GLOBAL DARK MODE OVERRIDES UNTUK KARTU, TABEL, & INPUT
+   DARK MODE SURFACE & PASTEL BADGE OVERRIDES
    ========================================================= */
 
 html.dark .bg-slate-100 {
-  background-color: #0f172a !important;
+  background-color: #0f1420 !important;
 }
 
 html.dark .bg-white,
 html.dark .bg-white\/95 {
-  background-color: #1e293b !important;
+  background-color: #171f30 !important;
 }
 
 html.dark .bg-slate-50,
 html.dark .bg-slate-50\/70 {
-  background-color: #0f172a !important;
+  background-color: #121927 !important;
 }
 
 html.dark .text-slate-900,
 html.dark .text-slate-800 {
-  color: #f8fafc !important;
+  color: #f1f5f9 !important;
 }
 
 html.dark .text-slate-700,
@@ -107,7 +219,7 @@ html.dark .border-slate-200,
 html.dark .border-slate-200\/60,
 html.dark .border-slate-200\/70,
 html.dark .border-slate-200\/80 {
-  border-color: #334155 !important;
+  border-color: #263248 !important;
 }
 
 html.dark .shadow-slate-200\/50,
@@ -118,9 +230,9 @@ html.dark .shadow-slate-200\/60 {
 html.dark input:not([type="checkbox"]):not([type="radio"]),
 html.dark select,
 html.dark textarea {
-  background-color: #0f172a;
-  color: #f8fafc;
-  border-color: #334155;
+  background-color: #111826;
+  color: #f1f5f9;
+  border-color: #28354d;
 }
 
 html.dark input::placeholder,
@@ -128,16 +240,81 @@ html.dark textarea::placeholder {
   color: #64748b;
 }
 
+/* Badge Pastel di Dark Mode: warna pastel cerah lembut dengan latar semi-transparan */
+html.dark .bg-indigo-50,
+html.dark .bg-indigo-100,
+html.dark .bg-indigo-100\/70 {
+  background-color: rgba(124, 131, 247, 0.16) !important;
+  color: #b4bcff !important;
+  border-color: rgba(124, 131, 247, 0.32) !important;
+}
+
+html.dark .text-indigo-600,
+html.dark .text-indigo-700 {
+  color: #a5b4fc !important;
+}
+
+html.dark .bg-emerald-50,
+html.dark .bg-emerald-50\/70,
+html.dark .bg-emerald-50\/80,
+html.dark .bg-emerald-100 {
+  background-color: rgba(56, 196, 147, 0.16) !important;
+  color: #7ce8c0 !important;
+  border-color: rgba(56, 196, 147, 0.32) !important;
+}
+
+html.dark .text-emerald-600,
+html.dark .text-emerald-700,
+html.dark .text-emerald-800 {
+  color: #6ee7b7 !important;
+}
+
+html.dark .bg-amber-50,
+html.dark .bg-amber-50\/50,
+html.dark .bg-amber-50\/70,
+html.dark .bg-amber-100,
+html.dark .bg-amber-100\/70 {
+  background-color: rgba(242, 174, 56, 0.16) !important;
+  color: #fcd34d !important;
+  border-color: rgba(242, 174, 56, 0.32) !important;
+}
+
+html.dark .text-amber-500,
+html.dark .text-amber-600,
+html.dark .text-amber-700,
+html.dark .text-amber-800 {
+  color: #fcd34d !important;
+}
+
+html.dark .bg-rose-50,
+html.dark .bg-rose-50\/50,
+html.dark .bg-rose-50\/70,
+html.dark .bg-rose-100 {
+  background-color: rgba(242, 114, 137, 0.16) !important;
+  color: #fda4af !important;
+  border-color: rgba(242, 114, 137, 0.32) !important;
+}
+
+html.dark .text-rose-500,
+html.dark .text-rose-600,
+html.dark .text-rose-700 {
+  color: #fda4af !important;
+}
+
 html.dark .from-amber-50\/50,
 html.dark .from-amber-50\/60,
-html.dark .from-amber-50,
+html.dark .from-amber-50 {
+  --tw-gradient-from: rgba(242, 174, 56, 0.12) !important;
+  --tw-gradient-to: #171f30 !important;
+}
+
 html.dark .from-emerald-50\/60,
 html.dark .from-emerald-50 {
-  --tw-gradient-from: rgba(30, 41, 59, 0.9) !important;
-  --tw-gradient-to: #1e293b !important;
+  --tw-gradient-from: rgba(56, 196, 147, 0.12) !important;
+  --tw-gradient-to: #171f30 !important;
 }
 
 html.dark .via-white,
 html.dark .to-white {
-  --tw-gradient-to: #1e293b !important;
+  --tw-gradient-to: #171f30 !important;
 }

@@ -370,8 +370,8 @@ export default function LaporanNilaiPage() {
                 type="primary" 
                 icon={<FileExcelOutlined />} 
                 onClick={handleExportExcel}
-                style={{ backgroundColor: '#16a34a', borderColor: '#16a34a' }}
-                className="flex-1 sm:flex-initial hover:!bg-green-700 active:scale-95 text-white text-xs font-bold px-5 h-11 rounded-2xl shadow-lg shadow-green-200 transition flex items-center justify-center gap-2"
+                style={{ backgroundColor: '#229e73', borderColor: '#229e73' }}
+                className="flex-1 sm:flex-initial hover:!bg-green-700 active:scale-95 text-white text-xs font-bold px-5 h-11 rounded-2xl shadow-sm transition flex items-center justify-center gap-2"
               >
                 Export Excel
               </Button>

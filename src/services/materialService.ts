@@ -1,5 +1,6 @@
 import { supabase } from '@/lib/supabase';
 import { Material } from '@/types/material';
+import { assertSafeText, assertSafeLongText } from '@/lib/sanitize';
 
 export interface GetPaginatedMaterialsParams {
   page: number;
@@ -64,11 +65,12 @@ export const materialService = {
 
     // Filter kategori di level DB
     if (category && category !== 'Semua Kategori') {
-      query = query.eq('category', category);
+      const safeCategory = assertSafeText(category, 'Kategori', 100);
+      query = query.eq('category', safeCategory);
     }
 
     // Filter pencarian judul / deskripsi di level DB
-    const trimmedSearch = search.trim();
+    const trimmedSearch = assertSafeText(search, 'Kata kunci pencarian', 150);
     if (trimmedSearch) {
       const escaped = trimmedSearch.replace(/[%_]/g, '\\$&');
       query = query.or(`title.ilike.%${escaped}%,description.ilike.%${escaped}%`);
@@ -94,9 +96,22 @@ export const materialService = {
   },
 
   async createMaterial(material: Omit<Material, 'id' | 'created_at'>): Promise<Material> {
+    const sanitizedPayload = {
+      ...material,
+      title: assertSafeText(material.title, 'Judul Materi', 200),
+      category: assertSafeText(material.category, 'Kategori Materi', 100),
+      description: assertSafeLongText(material.description, 'Deskripsi Materi', 20000),
+      equipment: Array.isArray(material.equipment)
+        ? material.equipment.map((eq) => ({
+            name: assertSafeText(eq.name, 'Nama Peralatan', 150),
+            isMandatory: Boolean(eq.isMandatory),
+          }))
+        : [],
+    };
+
     const { data, error } = await supabase
       .from('materials')
-      .insert([material])
+      .insert([sanitizedPayload])
       .select()
       .single();
 
@@ -108,9 +123,26 @@ export const materialService = {
     id: string,
     material: Partial<Omit<Material, 'id' | 'created_at'>>
   ): Promise<Material> {
+    const sanitizedPayload: any = { ...material };
+    if (material.title !== undefined) {
+      sanitizedPayload.title = assertSafeText(material.title, 'Judul Materi', 200);
+    }
+    if (material.category !== undefined) {
+      sanitizedPayload.category = assertSafeText(material.category, 'Kategori Materi', 100);
+    }
+    if (material.description !== undefined) {
+      sanitizedPayload.description = assertSafeLongText(material.description, 'Deskripsi Materi', 20000);
+    }
+    if (material.equipment !== undefined && Array.isArray(material.equipment)) {
+      sanitizedPayload.equipment = material.equipment.map((eq) => ({
+        name: assertSafeText(eq.name, 'Nama Peralatan', 150),
+        isMandatory: Boolean(eq.isMandatory),
+      }));
+    }
+
     const { data, error } = await supabase
       .from('materials')
-      .update(material)
+      .update(sanitizedPayload)
       .eq('id', id)
       .select()
       .single();

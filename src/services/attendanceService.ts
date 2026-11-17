@@ -1,5 +1,6 @@
 import { supabase } from '@/lib/supabase';
 import { AttendanceRecord, RecordAttendanceInput } from '@/types/attendance';
+import { assertSafeText } from '@/lib/sanitize';
 
 // Helper range waktu lokal hari ini (00:00:00 s/d 23:59:59.999) dalam UTC ISO
 function getTodayIsoRange() {
@@ -28,7 +29,7 @@ function normalizeAttendanceRecord(record: any): AttendanceRecord {
 export const attendanceService = {
   // 🎯 Record Presensi berdasarkan QR Code ID
   async recordAttendanceByQr(input: RecordAttendanceInput): Promise<AttendanceRecord> {
-    const scanned = (input.qr_code_id || '').trim();
+    const scanned = assertSafeText(input.qr_code_id || '', 'QR Code ID', 120);
     if (!scanned) {
       throw new Error('QR Code kosong / tidak terbaca.');
     }

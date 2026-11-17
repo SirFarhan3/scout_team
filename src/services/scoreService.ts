@@ -1,4 +1,5 @@
 import { supabase } from '@/lib/supabase';
+import { assertSafeText } from '@/lib/sanitize';
 
 // ==========================================
 // INTERFACES & TYPES
@@ -122,16 +123,17 @@ export async function createTeam(input: {
   name: string;
   gender?: 'Putra' | 'Putri' | 'Campuran' | string | null;
 }): Promise<TeamRecord> {
-  const trimmedName = input.name.trim();
+  const trimmedName = assertSafeText(input.name, 'Nama Regu', 100);
   if (!trimmedName) {
     throw new Error('Nama regu wajib diisi.');
   }
+  const safeGender = input.gender ? assertSafeText(input.gender, 'Gender Regu', 30) : 'Campuran';
 
   const { data, error } = await supabase
     .from('teams')
     .insert({
       name: trimmedName,
-      gender: input.gender || 'Campuran',
+      gender: safeGender,
     })
     .select('id, name, gender, created_at')
     .single();
@@ -147,8 +149,10 @@ export async function updateTeam(
   input: { name?: string; gender?: 'Putra' | 'Putri' | 'Campuran' | string | null }
 ): Promise<TeamRecord> {
   const payload: any = {};
-  if (input.name !== undefined) payload.name = input.name.trim();
-  if (input.gender !== undefined) payload.gender = input.gender;
+  if (input.name !== undefined) payload.name = assertSafeText(input.name, 'Nama Regu', 100);
+  if (input.gender !== undefined) {
+    payload.gender = input.gender ? assertSafeText(input.gender, 'Gender Regu', 30) : null;
+  }
 
   const { data, error } = await supabase
     .from('teams')
@@ -516,14 +520,15 @@ export async function addTeamScore(input: {
   description: string;
 }): Promise<ScoreHistoryItem> {
   if (!input.team_id) throw new Error('Pilih regu terlebih dahulu.');
-  if (!input.description?.trim()) throw new Error('Deskripsi kegiatan/minigame wajib diisi.');
+  const safeDesc = assertSafeText(input.description, 'Deskripsi Skor Regu', 300);
+  if (!safeDesc) throw new Error('Deskripsi kegiatan/minigame wajib diisi.');
 
   const { data, error } = await supabase
     .from('team_scores')
     .insert({
       team_id: input.team_id,
       points: Number(input.points) || 0,
-      description: input.description.trim(),
+      description: safeDesc,
     })
     .select('id, points, description, created_at')
     .single();
@@ -538,11 +543,12 @@ export async function updateTeamScore(
   scoreId: string,
   input: { points: number; description: string }
 ): Promise<ScoreHistoryItem> {
+  const safeDesc = assertSafeText(input.description, 'Deskripsi Skor Regu', 300);
   const { data, error } = await supabase
     .from('team_scores')
     .update({
       points: Number(input.points) || 0,
-      description: input.description.trim(),
+      description: safeDesc,
     })
     .eq('id', scoreId)
     .select('id, points, description, created_at')
@@ -567,14 +573,15 @@ export async function addStudentBonusPoint(input: {
   description: string;
 }): Promise<ScoreHistoryItem> {
   if (!input.student_id) throw new Error('Pilih siswa terlebih dahulu.');
-  if (!input.description?.trim()) throw new Error('Deskripsi keaktifan/minigame wajib diisi.');
+  const safeDesc = assertSafeText(input.description, 'Deskripsi Poin Siswa', 300);
+  if (!safeDesc) throw new Error('Deskripsi keaktifan/minigame wajib diisi.');
 
   const { data, error } = await supabase
     .from('student_bonus_points')
     .insert({
       student_id: input.student_id,
       points: Number(input.points) || 0,
-      description: input.description.trim(),
+      description: safeDesc,
     })
     .select('id, points, description, created_at')
     .single();
@@ -589,11 +596,12 @@ export async function updateStudentBonusPoint(
   bonusId: string,
   input: { points: number; description: string }
 ): Promise<ScoreHistoryItem> {
+  const safeDesc = assertSafeText(input.description, 'Deskripsi Poin Siswa', 300);
   const { data, error } = await supabase
     .from('student_bonus_points')
     .update({
       points: Number(input.points) || 0,
-      description: input.description.trim(),
+      description: safeDesc,
     })
     .eq('id', bonusId)
     .select('id, points, description, created_at')
@@ -667,14 +675,15 @@ export async function createPointPreset(input: {
   target_type: 'team' | 'student';
   points: number;
 }): Promise<PointPreset> {
-  if (!input.title?.trim()) {
+  const safeTitle = assertSafeText(input.title, 'Nama Master Poin', 200);
+  if (!safeTitle) {
     throw new Error('Nama / deskripsi poin wajib diisi.');
   }
 
   const { data, error } = await supabase
     .from('point_presets')
     .insert({
-      title: input.title.trim(),
+      title: safeTitle,
       target_type: input.target_type,
       points: Number(input.points) || 0,
     })
@@ -692,7 +701,7 @@ export async function updatePointPreset(
   input: { title?: string; target_type?: 'team' | 'student'; points?: number }
 ): Promise<PointPreset> {
   const payload: any = {};
-  if (input.title !== undefined) payload.title = input.title.trim();
+  if (input.title !== undefined) payload.title = assertSafeText(input.title, 'Nama Master Poin', 200);
   if (input.target_type !== undefined) payload.target_type = input.target_type;
   if (input.points !== undefined) payload.points = Number(input.points) || 0;
 

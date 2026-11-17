@@ -1,4 +1,5 @@
 import crypto from 'crypto';
+import { containsDangerousCode } from '@/lib/sanitize';
 
 /**
  * Verifikasi Origin / Sec-Fetch-Site untuk mencegah serangan CSRF (Cross-Site Request Forgery)
@@ -43,12 +44,16 @@ export function safeCompareSecret(provided: string | null, expected: string): bo
 
 /**
  * Sanitasi & batasi panjang input pengguna sebelum masuk ke prompt AI
- * untuk mengurangi risiko Prompt Injection dan Token Exhaustion DoS.
+ * untuk mengurangi risiko Prompt Injection, XSS, dan Token Exhaustion DoS.
  */
 export function sanitizePromptField(value: unknown, maxLength = 300): string {
   if (typeof value !== 'string') return '';
+  if (containsDangerousCode(value)) {
+    throw new Error('Input ditolak karena mengandung tag HTML atau kode JavaScript berbahaya.');
+  }
   return value
     .replace(/[\u0000-\u001F\u007F]/g, ' ')
+    .replace(/[<>]/g, '')
     .replace(/```/g, '')
     .trim()
     .slice(0, maxLength);

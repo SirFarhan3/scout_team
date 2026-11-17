@@ -88,10 +88,26 @@ export default function ThemeProvider({ children }: { children: React.ReactNode 
             mounted && mode === 'dark'
               ? antdTheme.darkAlgorithm
               : antdTheme.defaultAlgorithm,
-          token: {
-            colorPrimary: '#4f46e5',
-            borderRadius: 12,
-          },
+          token:
+            mounted && mode === 'dark'
+              ? {
+                  colorPrimary: '#7c83f7',
+                  colorSuccess: '#38c493',
+                  colorWarning: '#f2ae38',
+                  colorError: '#f27289',
+                  colorInfo: '#7c83f7',
+                  colorBgContainer: '#171f30',
+                  colorBgElevated: '#1e283d',
+                  borderRadius: 12,
+                }
+              : {
+                  colorPrimary: '#5b5fc7',
+                  colorSuccess: '#229e73',
+                  colorWarning: '#eba028',
+                  colorError: '#df4f67',
+                  colorInfo: '#5b5fc7',
+                  borderRadius: 12,
+                },
         }}
       >
         {children}

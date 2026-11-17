@@ -13,6 +13,7 @@ import {
 } from './components';
 import { ProkerItem } from '@/types/program-kerja';
 import { supabase } from '@/lib/supabase';
+import { assertSafeText } from '@/lib/sanitize';
 
 export default function ProkerTahunanPage() {
   // State untuk melacak apakah sedang mengedit data yang sudah ada
@@ -149,12 +150,29 @@ export default function ProkerTahunanPage() {
   const handleConfirmSave = async () => {
     try {
       setSaving(true);
-      
+
+      const safeTahunAjaran = assertSafeText(previewMeta.tahun_ajaran, 'Tahun Ajaran', 40);
+      const safeGolongan = assertSafeText(previewMeta.golongan, 'Golongan', 50);
+      const safeNamaPangkalan = assertSafeText(previewMeta.nama_pangkalan, 'Nama Pangkalan', 150);
+
+      const safeActivities = editableActivities.map((act, idx) => ({
+        ...act,
+        pekan_ke: assertSafeText(act.pekan_ke, `Pekan baris #${idx + 1}`, 80),
+        durasi: assertSafeText(act.durasi, `Durasi baris #${idx + 1}`, 60),
+        kegiatan: assertSafeText(act.kegiatan, `Kegiatan baris #${idx + 1}`, 500),
+        ...(act.keterangan_kegiatan !== undefined
+          ? { keterangan_kegiatan: assertSafeText(act.keterangan_kegiatan, `Keterangan baris #${idx + 1}`, 1500) }
+          : {}),
+        ...(act.ket_kegiatan !== undefined
+          ? { ket_kegiatan: assertSafeText(act.ket_kegiatan, `Keterangan baris #${idx + 1}`, 1500) }
+          : {}),
+      }));
+
       const payload = {
-        tahun_ajaran: previewMeta.tahun_ajaran,
-        golongan: previewMeta.golongan,
-        nama_pangkalan: previewMeta.nama_pangkalan,
-        kegiatan: editableActivities,
+        tahun_ajaran: safeTahunAjaran,
+        golongan: safeGolongan,
+        nama_pangkalan: safeNamaPangkalan,
+        kegiatan: safeActivities,
       };
 
       if (editingId) {
