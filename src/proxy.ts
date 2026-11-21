@@ -55,7 +55,7 @@ export async function proxy(request: NextRequest) {
 
   // 2. Jika sudah login dan membuka /login atau /register -> arahkan sesuai role
   if (session && isPublicPath(pathname)) {
-    const target = session.role === 'superadmin' ? '/superadmin' : '/';
+    const target = session.role === 'superadmin' ? '/superadmin' : '/portal';
     const res = NextResponse.redirect(new URL(target, request.url));
     res.headers.set('Content-Security-Policy', cspHeaderValue);
     return res;

@@ -50,6 +50,14 @@ export default function MenuDirectoryPage() {
 
   const menuList: MenuItem[] = [
     {
+      title: 'Translasi Sandi (Project Scout Chiper)',
+      description: 'Terjemahkan kalimat ke Sandi Morse (+ Peluit & Rumput), Sandi AN, Sandi AZ, Sandi Angka, Koordinat Merah Putih, dan sebaliknya.',
+      path: '/sandi',
+      icon: <BookOutlined className="text-xl text-indigo-600" />,
+      badge: 'Scout Chiper',
+      color: 'bg-indigo-50 border-indigo-100 hover:border-indigo-300',
+    },
+    {
       title: 'Scan QR / Absensi',
       description: 'Lakukan pemindaian QR code presensi anggota atau input absensi secara manual.',
       path: '/scan',

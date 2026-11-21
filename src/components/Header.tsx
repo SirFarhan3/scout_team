@@ -210,10 +210,25 @@ export default function Header({
                 ) : (
                   <>
                     <a
-                      href="/menu"
+                      href="/portal"
+                      title="Portal Pilihan Modul (Manajemen & Translasi Sandi)"
                       className="hidden sm:inline-flex bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-bold px-3 py-2 rounded-xl border border-indigo-200 transition items-center gap-1"
                     >
-                      <AppstoreOutlined /> Menu
+                      <AppstoreOutlined /> Portal
+                    </a>
+                    <a
+                      href="/sandi"
+                      title="Project Scout Chiper (Translasi Sandi Pramuka)"
+                      className="hidden sm:inline-flex bg-emerald-50 hover:bg-emerald-100 text-emerald-700 text-xs font-bold px-3 py-2 rounded-xl border border-emerald-200 transition items-center gap-1"
+                    >
+                      <span>🔐</span>
+                      <span>Sandi</span>
+                    </a>
+                    <a
+                      href="/menu"
+                      className="hidden sm:inline-flex bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold px-3 py-2 rounded-xl border border-slate-200 transition items-center gap-1"
+                    >
+                      Menu
                     </a>
                     {isAdmin && (
                       <a

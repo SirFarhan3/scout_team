@@ -30,10 +30,8 @@ export default function LoginPage() {
         window.location.href = '/superadmin';
       } else if (user.school && !user.school.subscription_active) {
         window.location.href = '/billing';
-      } else if (user.role === 'admin' || user.role === 'pembina') {
-        window.location.href = '/';
       } else {
-        window.location.href = '/scan';
+        window.location.href = '/portal';
       }
     } catch (err: unknown) {
       setErrorMsg(
