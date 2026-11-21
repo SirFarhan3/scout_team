@@ -1,10 +1,13 @@
 'use client';
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { Modal, Input, Button, Radio, message } from 'antd';
+import { App, Modal, Input, Button, Radio } from 'antd';
+import { QrcodeOutlined } from '@ant-design/icons';
 import { Student } from '@/types/student';
 import { studentService } from '@/services/studentService';
 import { getAllTeams, TeamRecord } from '@/services/scoreService';
+import { extractQrCodeId } from '@/lib/sanitize';
+import QrCodePickerModal from './QrCodePickerModal';
 
 interface StudentEditModalProps {
   visible: boolean;
@@ -13,7 +16,7 @@ interface StudentEditModalProps {
   onUpdate: (updatedStudent: Student) => void;
 }
 
-const KELAS_OPTIONS = ['6A', '6B', '5A', '5B'];
+const KELAS_PRESETS = ['5A', '5B', '6A', '6B', '7A', '8A', '9A', 'X', 'XI', 'XII'];
 
 export default function StudentEditModal({
   visible,
@@ -21,14 +24,17 @@ export default function StudentEditModal({
   onClose,
   onUpdate,
 }: StudentEditModalProps) {
+  const { message } = App.useApp();
   const [loading, setLoading] = useState(false);
   const [allTeams, setAllTeams] = useState<TeamRecord[]>([]);
   const [gender, setGender] = useState<'Putra' | 'Putri'>('Putra');
+  const [scannerOpen, setScannerOpen] = useState(false);
   const [formData, setFormData] = useState({
     full_name: '',
     class_name: '6A',
     group_name: '',
     nta: '',
+    qr_code_id: '',
   });
 
   useEffect(() => {
@@ -54,8 +60,10 @@ export default function StudentEditModal({
       setFormData({
         full_name: student.full_name || '',
         class_name: student.class_name || '6A',
-        group_name: student.group_name || '',
+        group_name:
+          student.group_name && student.group_name !== '-' ? student.group_name : '',
         nta: student.nta || '',
+        qr_code_id: student.qr_code_id || '',
       });
     }
   }, [student]);
@@ -66,15 +74,16 @@ export default function StudentEditModal({
     );
   }, [allTeams, gender]);
 
-  // Saat radio gender diganti, sesuaikan group_name ke regu pertama yang cocok
+  // Saat radio gender diganti, jika regu yang dipilih sebelumnya tidak cocok dengan gender baru, kosongkan regu
   const handleGenderChange = (newGender: 'Putra' | 'Putri') => {
     setGender(newGender);
     const matching = allTeams.filter(
       (t) => (t.gender || '').toLowerCase() === newGender.toLowerCase()
     );
-    if (matching.length > 0) {
-      setFormData((prev) => ({ ...prev, group_name: matching[0].name }));
-    }
+    setFormData((prev) => ({
+      ...prev,
+      group_name: matching.some((t) => t.name === prev.group_name) ? prev.group_name : '',
+    }));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -149,27 +158,31 @@ export default function StudentEditModal({
             <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">
               Kelas
             </label>
-            <select
+            <input
+              type="text"
+              list="kelas-edit-preset-list"
               value={formData.class_name}
               onChange={(e) => setFormData({ ...formData, class_name: e.target.value })}
+              placeholder="Contoh: 6A, 7B, X-1"
               className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-            >
-              {KELAS_OPTIONS.map((k) => (
-                <option key={k} value={k}>
-                  Kelas {k}
-                </option>
+              required
+            />
+            <datalist id="kelas-edit-preset-list">
+              {KELAS_PRESETS.map((k) => (
+                <option key={k} value={k} />
               ))}
-            </select>
+            </datalist>
           </div>
           <div>
             <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">
-              Regu ({gender})
+              Regu (Opsional)
             </label>
             <select
               value={formData.group_name}
               onChange={(e) => setFormData({ ...formData, group_name: e.target.value })}
               className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500"
             >
+              <option value="">-- Tanpa Regu (Opsional) --</option>
               {filteredTeams.map((team) => (
                 <option key={team.id} value={team.name}>
                   {team.name}
@@ -191,6 +204,35 @@ export default function StudentEditModal({
           />
         </div>
 
+        <div>
+          <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">
+            QR Code ID / Link KTA AyoPramuka
+          </label>
+          <div className="flex gap-2">
+            <Input
+              value={formData.qr_code_id}
+              onChange={(e) => {
+                const val = e.target.value;
+                setFormData({
+                  ...formData,
+                  qr_code_id: val.includes('/') ? extractQrCodeId(val) : val,
+                });
+              }}
+              placeholder="Tempel link AyoPramuka atau kode QR..."
+              className="rounded-xl py-2 text-xs font-semibold font-mono flex-1"
+              required
+            />
+            <Button
+              type="default"
+              icon={<QrcodeOutlined />}
+              onClick={() => setScannerOpen(true)}
+              className="rounded-xl text-xs font-bold border-indigo-200 text-indigo-600 bg-indigo-50 hover:bg-indigo-100 h-auto"
+            >
+              Scan QR
+            </Button>
+          </div>
+        </div>
+
         <div className="flex justify-end gap-2 pt-3 border-t border-slate-100">
           <Button
             onClick={onClose}
@@ -208,6 +250,16 @@ export default function StudentEditModal({
           </Button>
         </div>
       </form>
+
+      <QrCodePickerModal
+        open={scannerOpen}
+        onClose={() => setScannerOpen(false)}
+        onDetected={(extractedId) => {
+          setFormData((prev) => ({ ...prev, qr_code_id: extractedId }));
+          setScannerOpen(false);
+          message.success(`QR KTA berhasil dibaca!`);
+        }}
+      />
     </Modal>
   );
 }

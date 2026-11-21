@@ -1,11 +1,13 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
-import { message, Modal, Pagination } from 'antd';
+import { App, Pagination } from 'antd';
 import Header from '@/components/Header';
+import PageLoader from '@/components/PageLoader';
 import { materialService } from '@/services/materialService';
 import { Material } from '@/types/material';
 import { authService, UserSessionData } from '@/lib/auth';
+import { apiFetch } from '@/lib/apiClient';
 
 // Import komponen terpisah
 import MaterialCard from './components/MaterialCard';
@@ -15,10 +17,12 @@ import AiGeneratorModal from './components/AiGeneratorModal';
 const PAGE_SIZE = 9; // Grid 3x3 maksimal (9 kartu per halaman)
 
 export default function MateriPage() {
+  const { message, modal } = App.useApp();
   const [currentUser, setCurrentUser] = useState<UserSessionData | null>(null);
   const [materials, setMaterials] = useState<Material[]>([]);
   const [categories, setCategories] = useState<string[]>(['Semua Kategori']);
   const [loading, setLoading] = useState(true);
+  const [initialLoading, setInitialLoading] = useState(true);
 
   // Pagination State (Server-Side DB Range)
   const [currentPage, setCurrentPage] = useState<number>(1);
@@ -56,6 +60,10 @@ export default function MateriPage() {
         window.location.href = '/login';
         return;
       }
+      if (user.school && !user.school.subscription_active) {
+        window.location.href = '/billing';
+        return;
+      }
       setCurrentUser(user);
       materialService
         .getMaterialCategories()
@@ -85,6 +93,7 @@ export default function MateriPage() {
         message.error('Gagal memuat daftar materi dari database');
       } finally {
         setLoading(false);
+        setInitialLoading(false);
       }
     },
     []
@@ -166,26 +175,23 @@ export default function MateriPage() {
 
     setIsGenerating(true);
     try {
-      const res = await fetch('/api/material', {
+      const result = await apiFetch<{
+        success: boolean;
+        error?: string;
+        data: {
+          title?: string;
+          category?: string;
+          description?: string;
+          equipment?: Array<{ name: string; isMandatory: boolean }>;
+        };
+      }>('/api/material', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           topic: aiTopic,
           level: aiLevel,
           duration: aiDuration,
         }),
       });
-
-      const result = await res.json();
-
-      if (!result.success) {
-        if (result.error && result.error.includes('503')) {
-          throw new Error(
-            'Server AI sedang padat (High Demand). Mohon coba beberapa saat lagi ya, bro!'
-          );
-        }
-        throw new Error(result.error || 'Terjadi kesalahan pada server AI');
-      }
 
       setTitle(result.data.title || '');
       setCategory(result.data.category || '');
@@ -239,7 +245,7 @@ export default function MateriPage() {
   };
 
   const handleDelete = async (id: string) => {
-    Modal.confirm({
+    modal.confirm({
       title: 'Hapus Materi',
       content: 'Yakin ingin menghapus materi ini?',
       okText: 'Hapus',
@@ -261,6 +267,10 @@ export default function MateriPage() {
       },
     });
   };
+
+  if (initialLoading) {
+    return <PageLoader text="Memuat Database Materi & Logistik..." />;
+  }
 
   return (
     <div className="min-h-screen bg-slate-100 text-slate-800 p-4 md:p-8 font-sans">

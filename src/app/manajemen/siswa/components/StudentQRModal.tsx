@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useRef } from 'react';
-import { Modal, Button, message } from 'antd';
+import { App, Modal, Button } from 'antd';
 import { PrinterOutlined, DownloadOutlined } from '@ant-design/icons';
 import { QRCodeCanvas } from 'qrcode.react';
 import { Student } from '@/types/student';
@@ -24,6 +24,7 @@ export default function StudentQRModal({
   student,
   onClose,
 }: StudentQRModalProps) {
+  const { message } = App.useApp();
   const exportCanvasRef = useRef<HTMLCanvasElement | null>(null);
 
   if (!student) return null;
@@ -95,7 +96,10 @@ export default function StudentQRModal({
       return;
     }
 
-    const win = window.open('', '_blank', 'width=600,height=800,noopener,noreferrer');
+    const win = window.open('', '_blank', 'width=600,height=800');
+    if (win) {
+      win.opener = null;
+    }
     if (!win) {
       message.error('Pop-up diblokir browser. Izinkan pop-up untuk mencetak.');
       return;

@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+import { headers } from "next/headers";
 import "./globals.css";
 import ThemeProvider from "@/components/ThemeProvider";
 
@@ -14,8 +15,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Scout Team B3",
-  description: "Scouting Website for SDN Bencongan 3",
+  title: "Scout Management Portal",
+  description: "Platform SaaS Manajemen Kepramukaan, Presensi QR & Laporan Gugusdepan Sekolah",
   icons: {
     icon: "/logo.jpg",
     shortcut: "/logo.jpg",
@@ -23,7 +24,9 @@ export const metadata: Metadata = {
   },
 };
 
-export default function RootLayout({ children }: LayoutProps<"/">) {
+export default async function RootLayout({ children }: LayoutProps<"/">) {
+  const nonce = (await headers()).get("x-nonce") || undefined;
+
   return (
     <html
       lang="id"
@@ -32,6 +35,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
     >
       <head>
         <script
+          nonce={nonce}
           dangerouslySetInnerHTML={{
             __html: `
               (function() {

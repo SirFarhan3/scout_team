@@ -18,10 +18,18 @@ import {
 import ScoreDetailModal from '@/components/ranking/ScoreDetailModal';
 import MinigameScoreModal from '@/components/ranking/MinigameScoreModal';
 
-export default function RankReguCard() {
-  const [teams, setTeams] = useState<BestTeamResult[]>([]);
-  const [students, setStudents] = useState<BestStudentResult[]>([]);
-  const [loading, setLoading] = useState<boolean>(true);
+interface RankReguCardProps {
+  initialTeams?: BestTeamResult[];
+  initialStudents?: BestStudentResult[];
+}
+
+export default function RankReguCard({
+  initialTeams,
+  initialStudents,
+}: RankReguCardProps = {}) {
+  const [teams, setTeams] = useState<BestTeamResult[]>(initialTeams || []);
+  const [students, setStudents] = useState<BestStudentResult[]>(initialStudents || []);
+  const [loading, setLoading] = useState<boolean>(!initialTeams);
   const [error, setError] = useState<string | null>(null);
 
   // Modal Detail Regu
@@ -62,8 +70,10 @@ export default function RankReguCard() {
   };
 
   useEffect(() => {
-    fetchLeaderboard();
-  }, []);
+    if (!initialTeams) {
+      fetchLeaderboard();
+    }
+  }, [initialTeams]);
 
   const getBadgeStyle = (rank: number) => {
     if (rank === 1) return 'bg-amber-500 text-white';

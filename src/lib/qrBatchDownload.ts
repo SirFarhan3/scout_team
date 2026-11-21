@@ -6,18 +6,48 @@ const COLUMNS = 3;
 const ROWS = 4;
 const PER_PAGE = COLUMNS * ROWS; // 12 QR per lembar A4
 
+function printHtmlViaIframe(html: string): void {
+  const iframe = document.createElement('iframe');
+  iframe.style.position = 'fixed';
+  iframe.style.right = '0';
+  iframe.style.bottom = '0';
+  iframe.style.width = '0';
+  iframe.style.height = '0';
+  iframe.style.border = '0';
+  document.body.appendChild(iframe);
+
+  const doc = iframe.contentWindow?.document;
+  if (!doc || !iframe.contentWindow) {
+    document.body.removeChild(iframe);
+    throw new Error('Gagal menyiapkan dokumen cetak.');
+  }
+
+  doc.open();
+  doc.write(html);
+  doc.close();
+
+  setTimeout(() => {
+    iframe.contentWindow?.focus();
+    iframe.contentWindow?.print();
+    setTimeout(() => {
+      if (document.body.contains(iframe)) {
+        document.body.removeChild(iframe);
+      }
+    }, 3000);
+  }, 500);
+}
+
 /**
  * Cetak QR anggota dalam satu/lebih lembar A4 (12 QR per halaman: 3 kolom x 4 baris).
- * Dibuka di jendela cetak browser — bisa langsung diprint atau "Save as PDF".
- * Harus dipanggil langsung dari klik user agar pop-up tidak diblokir.
+ * Dibuka di jendela cetak browser — atau fallback otomatis ke iframe cetak bila pop-up diblokir.
  */
 export async function printStudentQrSheet(students: Student[], heading: string): Promise<void> {
-  // Buka jendela SEKARANG (sinkron dengan klik) lalu isi setelah QR selesai dibuat
-  const win = window.open('', '_blank', 'width=900,height=1000,noopener,noreferrer');
-  if (!win) {
-    throw new Error('Pop-up diblokir browser. Izinkan pop-up untuk mencetak QR.');
+  // Catatan: Jangan gunakan 'noopener,noreferrer' karena browser akan mengembalikan null pada window.open()
+  const win = window.open('', '_blank', 'width=900,height=1000');
+  if (win) {
+    win.opener = null;
+    win.document.write('<p style="font-family:Arial;padding:24px">Menyiapkan lembar QR...</p>');
   }
-  win.document.write('<p style="font-family:Arial;padding:24px">Menyiapkan lembar QR...</p>');
 
   try {
     // Buat semua QR sebagai data URL (quiet zone 4 modul agar mudah di-scan)
@@ -49,8 +79,7 @@ export async function printStudentQrSheet(students: Student[], heading: string):
       pages.push(`<section class="page">${cards.slice(i, i + PER_PAGE).join('')}</section>`);
     }
 
-    win.document.open();
-    win.document.write(`
+    const htmlContent = `
       <!DOCTYPE html>
       <html>
         <head>
@@ -88,16 +117,23 @@ export async function printStudentQrSheet(students: Student[], heading: string):
         </head>
         <body>${pages.join('')}</body>
       </html>
-    `);
-    win.document.close();
+    `;
 
-    // Beri waktu gambar ter-render sebelum dialog cetak muncul
-    setTimeout(() => {
-      win.focus();
-      win.print();
-    }, 500);
+    if (win) {
+      win.document.open();
+      win.document.write(htmlContent);
+      win.document.close();
+
+      // Beri waktu gambar ter-render sebelum dialog cetak muncul
+      setTimeout(() => {
+        win.focus();
+        win.print();
+      }, 500);
+    } else {
+      printHtmlViaIframe(htmlContent);
+    }
   } catch (error) {
-    win.close();
+    if (win) win.close();
     throw error;
   }
 }

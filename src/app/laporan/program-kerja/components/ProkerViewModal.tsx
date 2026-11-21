@@ -9,10 +9,11 @@ import { escapeHtml } from '@/lib/sanitize';
 interface ProkerViewModalProps {
   isOpen: boolean;
   viewData: ProkerItem | null;
+  schoolCity?: string;
   onClose: () => void;
 }
 
-export default function ProkerViewModal({ isOpen, viewData, onClose }: ProkerViewModalProps) {
+export default function ProkerViewModal({ isOpen, viewData, schoolCity = 'Indonesia', onClose }: ProkerViewModalProps) {
   if (!viewData) return null;
 
   const entries = Array.isArray(viewData.kegiatan) ? viewData.kegiatan : [];
@@ -42,7 +43,7 @@ export default function ProkerViewModal({ isOpen, viewData, onClose }: ProkerVie
       })
     );
 
-    const WindowPrt = window.open('', '_blank', 'left=0,top=0,width=900,height=650,noopener,noreferrer');
+    const WindowPrt = window.open('', '_blank', 'left=0,top=0,width=900,height=650');
     if (WindowPrt) {
       WindowPrt.document.open();
       WindowPrt.document.write(`
@@ -150,7 +151,7 @@ export default function ProkerViewModal({ isOpen, viewData, onClose }: ProkerVie
               </table>
               <div class="footer">
                 <div class="signature">
-                  <div>Tangerang, ${printedDate}</div>
+                  <div>${escapeHtml(schoolCity)}, ${printedDate}</div>
                   <div>Pembina Satuan,</div>
                   <div class="signature-space"></div>
                   <div class="signature-line"></div>
@@ -287,7 +288,7 @@ export default function ProkerViewModal({ isOpen, viewData, onClose }: ProkerVie
 
           <div className="footer">
             <div className="signature">
-              <div>Tangerang, {new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}</div>
+              <div>{schoolCity}, {new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}</div>
               <div>Pembina Satuan,</div>
               <div className="signature-space"></div>
               <div className="signature-line"></div>

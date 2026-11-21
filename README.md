@@ -56,8 +56,8 @@ Pastikan komputer/laptop lu sudah menginstal:
 3. **Konfigurasi Environment Variables:**
    Buat file `.env.local` di root folder project, lalu masukkan konfigurasi Supabase lu:
    ```env
-   NEXT_PUBLIC_SUPABASE_URL=your_supabase_project_url
-   NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
+   TURSO_DATABASE_URL=your_supabase_project_url
+   TURSO_AUTH_TOKEN=your_supabase_anon_key
    ```
 
 4. **Jalankan server development lokal:**

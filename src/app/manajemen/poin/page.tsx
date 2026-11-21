@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import {
+  App,
   Table,
   Card,
   Button,
@@ -12,7 +13,6 @@ import {
   Select,
   Popconfirm,
   Radio,
-  message,
 } from 'antd';
 import {
   PlusOutlined,
@@ -28,6 +28,7 @@ import {
   HistoryOutlined,
 } from '@ant-design/icons';
 import Header from '@/components/Header';
+import PageLoader from '@/components/PageLoader';
 import { authService } from '@/lib/auth';
 import {
   PointPreset,
@@ -51,6 +52,7 @@ import {
 import MinigameScoreModal from '@/components/ranking/MinigameScoreModal';
 
 export default function ManajemenPoinPage() {
+  const { message } = App.useApp();
   const [activeTab, setActiveTab] = useState<'presets' | 'logs'>('presets');
   const [presets, setPresets] = useState<PointPreset[]>([]);
   const [teamLogs, setTeamLogs] = useState<TeamScoreLogItem[]>([]);
@@ -60,6 +62,7 @@ export default function ManajemenPoinPage() {
   const [loading, setLoading] = useState<boolean>(true);
 
   // State Form Tambah Master Poin Baru
+  const [showCreatePresetModal, setShowCreatePresetModal] = useState<boolean>(false);
   const [newTitle, setNewTitle] = useState<string>('');
   const [newTargetType, setNewTargetType] = useState<'team' | 'student'>('team');
   const [newPointMode, setNewPointMode] = useState<'add' | 'deduct'>('add');
@@ -126,13 +129,17 @@ export default function ManajemenPoinPage() {
         window.location.href = '/login';
         return;
       }
+      if (user.school && !user.school.subscription_active) {
+        window.location.href = '/billing';
+        return;
+      }
       loadAllData();
     });
   }, []);
 
   // Tambah Master Poin Baru
-  const handleCreatePreset = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleCreatePreset = async (e?: React.FormEvent | React.MouseEvent) => {
+    e?.preventDefault?.();
     if (!newTitle.trim()) {
       message.warning('Nama / deskripsi poin wajib diisi');
       return;
@@ -158,6 +165,7 @@ export default function ManajemenPoinPage() {
         }) berhasil ditambahkan!`
       );
       setNewTitle('');
+      setShowCreatePresetModal(false);
       await loadAllData();
     } catch (err: any) {
       message.error(err.message || 'Gagal menyimpan master poin');
@@ -547,6 +555,10 @@ export default function ManajemenPoinPage() {
     },
   ];
 
+  if (loading) {
+    return <PageLoader text="Memuat Master Poin & Riwayat..." />;
+  }
+
   return (
     <div className="min-h-screen bg-slate-100 text-slate-800 p-4 md:p-8 font-sans">
       <div className="max-w-6xl mx-auto space-y-6">
@@ -601,6 +613,14 @@ export default function ManajemenPoinPage() {
             <Button
               type="primary"
               icon={<PlusOutlined />}
+              onClick={() => setShowCreatePresetModal(true)}
+              className="flex-1 sm:flex-initial bg-indigo-600 hover:!bg-indigo-700 rounded-2xl h-10 px-4 text-xs font-extrabold shadow-sm"
+            >
+              Tambah Master Poin
+            </Button>
+            <Button
+              type="primary"
+              icon={<PlusOutlined />}
               onClick={() => setShowGivePointModal(true)}
               className="w-full sm:w-auto bg-amber-500 hover:!bg-amber-600 border-amber-500 rounded-2xl h-10 px-5 text-xs font-extrabold shadow-md shadow-amber-200/60"
             >
@@ -611,62 +631,53 @@ export default function ManajemenPoinPage() {
 
         {activeTab === 'presets' ? (
           <>
-            {/* 1. Form Tambah Master Poin ke Database */}
-            <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100 space-y-4">
-              <div>
-                <h2 className="text-base font-bold text-slate-900">
-                  ➕ Tambah Item Katalog Poin Baru ke Database
-                </h2>
+            <Modal
+              title={<span className="font-bold text-sm">➕ Tambah Item Katalog Poin Baru</span>}
+              open={showCreatePresetModal}
+              onCancel={() => setShowCreatePresetModal(false)}
+              onOk={handleCreatePreset}
+              confirmLoading={creatingPreset}
+              okText="Simpan Poin"
+              cancelText="Batal"
+              centered
+            >
+              <div className="space-y-4 py-2">
                 <p className="text-xs text-slate-400">
                   Item poin yang ditambahkan di sini akan otomatis muncul sebagai pilihan saat Pembina menambah atau mengurangi poin Regu maupun Siswa.
                 </p>
-              </div>
-
-              <form
-                onSubmit={handleCreatePreset}
-                className="grid grid-cols-1 md:grid-cols-12 gap-3 items-end"
-              >
-                {/* Target: Regu vs Individu */}
-                <div className="md:col-span-2">
-                  <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-500 uppercase mb-1">
                     Target Poin
                   </label>
-                  <select
+                  <Select
                     value={newTargetType}
-                    onChange={(e) => setNewTargetType(e.target.value as 'team' | 'student')}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-xs font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                  >
-                    <option value="team">🚩 Regu</option>
-                    <option value="student">👤 Individu Siswa</option>
-                  </select>
+                    onChange={(val) => setNewTargetType(val)}
+                    className="w-full"
+                    options={[
+                      { value: 'team', label: '🚩 Regu' },
+                      { value: 'student', label: '👤 Individu Siswa' },
+                    ]}
+                  />
                 </div>
-
-                {/* Jenis: Penambahan (+) vs Pengurangan (-) */}
-                <div className="md:col-span-3">
-                  <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-500 uppercase mb-1">
                     Jenis Poin
                   </label>
-                  <select
+                  <Select
                     value={newPointMode}
-                    onChange={(e) => setNewPointMode(e.target.value as 'add' | 'deduct')}
-                    className={`w-full border rounded-xl px-3 py-2.5 text-xs font-bold focus:outline-none focus:ring-2 ${
-                      newPointMode === 'add'
-                        ? 'bg-emerald-50 border-emerald-200 text-emerald-800 focus:ring-emerald-500'
-                        : 'bg-rose-50 border-rose-200 text-rose-800 focus:ring-rose-500'
-                    }`}
-                  >
-                    <option value="add">➕ Penambahan Poin (+ Reward)</option>
-                    <option value="deduct">➖ Pengurangan Poin (- Sanksi)</option>
-                  </select>
+                    onChange={(val) => setNewPointMode(val)}
+                    className="w-full"
+                    options={[
+                      { value: 'add', label: '➕ Penambahan Poin (+ Reward)' },
+                      { value: 'deduct', label: '➖ Pengurangan Poin (- Sanksi)' },
+                    ]}
+                  />
                 </div>
-
-                {/* Nama Penilaian / Pelanggaran */}
-                <div className="md:col-span-4">
-                  <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-500 uppercase mb-1">
                     Nama Penilaian / Minigame / Pelanggaran *
                   </label>
-                  <input
-                    type="text"
+                  <Input
                     placeholder={
                       newPointMode === 'add'
                         ? 'Contoh: Juara 1 Lomba Pionering / Menjawab Kuis'
@@ -674,39 +685,23 @@ export default function ManajemenPoinPage() {
                     }
                     value={newTitle}
                     onChange={(e) => setNewTitle(e.target.value)}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    className="rounded-xl"
                   />
                 </div>
-
-                {/* Nominal Poin */}
-                <div className="md:col-span-1">
-                  <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">
-                    Poin ({newPointMode === 'add' ? '+' : '-'})
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-500 uppercase mb-1">
+                    Nominal Poin ({newPointMode === 'add' ? '+' : '-'})
                   </label>
-                  <input
-                    type="number"
+                  <InputNumber
                     min={1}
                     max={500}
                     value={newPointValue}
-                    onChange={(e) => setNewPointValue(Math.max(1, Math.abs(Number(e.target.value) || 0)))}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-xs font-black text-center text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    onChange={(val) => setNewPointValue(Math.max(1, Math.abs(Number(val) || 0)))}
+                    className="w-full rounded-xl"
                   />
                 </div>
-
-                {/* Submit Button */}
-                <div className="md:col-span-2">
-                  <Button
-                    htmlType="submit"
-                    type="primary"
-                    loading={creatingPreset}
-                    icon={<PlusOutlined />}
-                    className="w-full h-10 rounded-xl font-bold text-xs bg-indigo-600 hover:!bg-indigo-700"
-                  >
-                    Simpan Poin
-                  </Button>
-                </div>
-              </form>
-            </div>
+              </div>
+            </Modal>
 
             {/* 2. Tabel Daftar Master Poin di Database */}
             <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100 space-y-4">

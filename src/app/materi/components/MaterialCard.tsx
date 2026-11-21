@@ -34,7 +34,7 @@ export default function MaterialCard({ material, currentUser, onEdit, onDelete }
   const equipment = material.equipment || [];
   const visibleEquipment = equipment.slice(0, MAX_VISIBLE_EQUIPMENT);
   const hiddenCount = equipment.length - visibleEquipment.length;
-  const isAdmin = currentUser?.role === 'admin';
+  const canManage = currentUser?.role === 'admin' || currentUser?.role === 'pembina';
 
   return (
     <>
@@ -105,7 +105,7 @@ export default function MaterialCard({ material, currentUser, onEdit, onDelete }
             👁️ Detail
           </button>
 
-          {isAdmin && (
+          {canManage && (
             <div className="flex items-center gap-2">
               <button
                 onClick={() => onEdit(material)}

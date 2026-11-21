@@ -1,18 +1,22 @@
 'use client';
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import Header from '@/components/Header';
-import { 
-  QrcodeOutlined, 
-  TeamOutlined, 
-  UserOutlined, 
-  DatabaseOutlined, 
-  BarChartOutlined, 
-  CalendarOutlined, 
+import PageLoader from '@/components/PageLoader';
+import { authService, UserSessionData } from '@/lib/auth';
+import {
+  QrcodeOutlined,
+  TeamOutlined,
+  UserOutlined,
+  DatabaseOutlined,
+  BarChartOutlined,
+  CalendarOutlined,
   BookOutlined,
   TrophyOutlined,
   FlagOutlined,
-  ArrowRightOutlined 
+  CreditCardOutlined,
+  SettingOutlined,
+  ArrowRightOutlined,
 } from '@ant-design/icons';
 
 interface MenuItem {
@@ -22,15 +26,33 @@ interface MenuItem {
   icon: React.ReactNode;
   badge: string;
   color: string;
+  adminOnly?: boolean;
 }
 
 export default function MenuDirectoryPage() {
-  // Daftar semua menu yang ada di aplikasi Scout Management
+  const [currentUser, setCurrentUser] = useState<UserSessionData | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    authService.getCurrentUser().then((user) => {
+      if (!user) {
+        window.location.href = '/login';
+        return;
+      }
+      if (user.role === 'superadmin') {
+        window.location.href = '/superadmin';
+        return;
+      }
+      setCurrentUser(user);
+      setLoading(false);
+    });
+  }, []);
+
   const menuList: MenuItem[] = [
     {
       title: 'Scan QR / Absensi',
       description: 'Lakukan pemindaian QR code presensi anggota atau input absensi secara manual.',
-      path: '/scan', // Sesuaikan dengan route aslinya
+      path: '/scan',
       icon: <QrcodeOutlined className="text-xl text-emerald-600" />,
       badge: 'Presensi',
       color: 'bg-emerald-50 border-emerald-100 hover:border-emerald-300',
@@ -61,32 +83,33 @@ export default function MenuDirectoryPage() {
     },
     {
       title: 'Manajemen Anggota',
-      description: 'Kelola data seluruh anggota pramuka, regu, golongan, dan profil pengurus.',
-      path: '/manajemen/siswa', // Sesuaikan dengan route aslinya
+      description: 'Kelola data seluruh anggota pramuka, regu, golongan, dan cetak kartu QR.',
+      path: '/manajemen/siswa',
       icon: <TeamOutlined className="text-xl text-indigo-600" />,
       badge: 'Database',
       color: 'bg-indigo-50 border-indigo-100 hover:border-indigo-300',
     },
     {
       title: 'Manajemen Pembina',
-      description: 'Daftar data pembina, pelatih, serta penanggung jawab gugusdepan.',
-      path: '/manajemen/pembina', // Sesuaikan dengan route aslinya
+      description: 'Kelola akun pembina, pelatih, serta pembantu pembina khusus sekolah Anda.',
+      path: '/manajemen/pembina',
       icon: <UserOutlined className="text-xl text-blue-600" />,
-      badge: 'Database',
+      badge: 'Admin',
       color: 'bg-blue-50 border-blue-100 hover:border-blue-300',
+      adminOnly: true,
     },
     {
       title: 'Database Materi & Alat',
       description: 'Pusat data inventaris alat kepramukaan, tenda, pionering, dan referensi materi latihan.',
-      path: '/materi', // Sesuaikan dengan route aslinya
+      path: '/materi',
       icon: <DatabaseOutlined className="text-xl text-amber-600" />,
       badge: 'Inventaris',
       color: 'bg-amber-50 border-amber-100 hover:border-amber-300',
     },
     {
       title: 'Laporan Nilai & Kehadiran',
-      description: 'Rekapitulasi lengkap nilai latihan, pencapaian SKU, dan statistik kehadiran anggota.',
-      path: '/laporan/nilai', // Sesuaikan dengan route aslinya
+      description: 'Rekapitulasi lengkap nilai latihan, ekspor Excel resmi sekolah, dan statistik kehadiran anggota.',
+      path: '/laporan/nilai',
       icon: <BarChartOutlined className="text-xl text-purple-600" />,
       badge: 'Laporan',
       color: 'bg-purple-50 border-purple-100 hover:border-purple-300',
@@ -102,12 +125,33 @@ export default function MenuDirectoryPage() {
     {
       title: 'Laporan Log Harian',
       description: 'Catatan harian kegiatan latihan, dokumentasi, dan evaluasi rutin oleh pembina.',
-      path: '/laporan/log-harian', // Sesuaikan dengan route aslinya
+      path: '/laporan/log-harian',
       icon: <BookOutlined className="text-xl text-cyan-600" />,
       badge: 'Logbook',
       color: 'bg-cyan-50 border-cyan-100 hover:border-cyan-300',
     },
-  ];
+    {
+      title: 'Langganan & Lisensi Sekolah',
+      description: 'Cek masa aktif paket sekolah, kuota anggota/akun, aktivasi kode lisensi, dan riwayat invoice.',
+      path: '/billing',
+      icon: <CreditCardOutlined className="text-xl text-amber-600" />,
+      badge: 'Billing',
+      color: 'bg-amber-50 border-amber-100 hover:border-amber-300',
+      adminOnly: true,
+    },
+    {
+      title: 'Pengaturan Sekolah & Keamanan',
+      description: 'Perbarui profil sekolah pada dokumen cetak/Excel serta ganti password akun Anda.',
+      path: '/pengaturan',
+      icon: <SettingOutlined className="text-xl text-slate-600" />,
+      badge: 'Keamanan',
+      color: 'bg-slate-50 border-slate-200 hover:border-slate-300',
+    },
+  ].filter((m) => !m.adminOnly || currentUser?.role === 'admin');
+
+  if (loading) {
+    return <PageLoader text="Memuat Direktori Menu..." />;
+  }
 
   return (
     <div className="min-h-screen bg-slate-100 text-slate-800 p-4 md:p-8 font-sans">

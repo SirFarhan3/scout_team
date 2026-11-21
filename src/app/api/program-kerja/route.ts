@@ -1,17 +1,38 @@
 import { NextResponse } from 'next/server';
 import { generateWithAI } from '@/lib/aiService';
-import { isSameOriginRequest, sanitizePromptField } from '@/lib/serverSecurity';
+import { assertSameOriginMutation, sanitizePromptField } from '@/lib/serverSecurity';
+import { checkRateLimit, getClientIp } from '@/lib/rateLimit';
+import { handleApiError, requireAuth } from '@/lib/authServer';
 
 export async function POST(request: Request) {
   try {
-    if (!isSameOriginRequest(request)) {
-      return NextResponse.json({ success: false, message: 'Akses lintas origin ditolak.' }, { status: 403 });
+    assertSameOriginMutation(request);
+    const ctx = await requireAuth({
+      roles: ['admin', 'pembina'],
+      requireSchool: true,
+      requireActiveSubscription: true,
+      requireAiFeature: true,
+    });
+
+    const ip = getClientIp(request);
+    const limit = checkRateLimit(`ai:proker:${ctx.school!.id}:${ip}`, 10, 10 * 60 * 1000);
+    if (!limit.allowed) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: 'Batas generate AI sementara tercapai. Silakan coba beberapa menit lagi.',
+        },
+        { status: 429 }
+      );
     }
 
-    const body = await request.json();
+    const body = await request.json().catch(() => null);
     const tahunAjaran = sanitizePromptField(body?.tahunAjaran, 40);
     const golongan = sanitizePromptField(body?.golongan, 50);
-    const namaPangkalan = sanitizePromptField(body?.namaPangkalan, 120) || 'Gugus Depan';
+    const namaPangkalan =
+      sanitizePromptField(body?.namaPangkalan, 120) ||
+      ctx.school!.gugusdepan ||
+      ctx.school!.name;
     const focus = sanitizePromptField(body?.focus, 150) || 'Umum';
     const customPrompt = sanitizePromptField(body?.customPrompt, 500) || 'Tidak ada';
 
@@ -72,6 +93,9 @@ export async function POST(request: Request) {
       kegiatan: generatedActivities,
     });
   } catch (error: any) {
+    if (error?.status === 401 || error?.status === 402 || error?.status === 403 || error?.status === 400) {
+      return handleApiError(error);
+    }
     console.error('Error generating proker:', error);
     return NextResponse.json(
       { success: false, message: 'Gagal menghasilkan program kerja dari AI.' },

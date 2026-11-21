@@ -1,12 +1,14 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Table, Card, Button, Tag, message } from 'antd';
+import { App, Table, Card, Button, Tag } from 'antd';
 import { FileExcelOutlined, ReloadOutlined } from '@ant-design/icons';
 import * as XLSX from 'xlsx-js-style';
 import Header from '@/components/Header';
-import { authService } from '@/lib/auth';
+import PageLoader from '@/components/PageLoader';
+import { authService, UserSessionData } from '@/lib/auth';
 import { attendanceService } from '@/services/attendanceService';
+import { sanitizeSpreadsheetCell } from '@/lib/sanitize';
 
 interface ReportRow {
   id?: string;
@@ -27,8 +29,10 @@ interface ReportRow {
 }
 
 export default function LaporanNilaiPage() {
+  const { message } = App.useApp();
+  const [currentUser, setCurrentUser] = useState<UserSessionData | null>(null);
   const [reportData, setReportData] = useState<ReportRow[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
 
   // State untuk Filter & Pencarian
   const [searchQuery, setSearchQuery] = useState('');
@@ -53,6 +57,11 @@ export default function LaporanNilaiPage() {
         window.location.href = '/login';
         return;
       }
+      if (user.school && !user.school.subscription_active) {
+        window.location.href = '/billing';
+        return;
+      }
+      setCurrentUser(user);
       fetchReportData();
     });
   }, []);
@@ -108,28 +117,31 @@ export default function LaporanNilaiPage() {
 
     const { semester, tahunAjaran } = getAcademicPeriod();
 
+    const schoolTitle = (currentUser?.school?.name || 'PANGKALAN SEKOLAH').toUpperCase();
+    const schoolCity = currentUser?.school?.city || 'Indonesia';
+
     // 1. Baris Judul
     const excelRows: (string | number)[][] = [
       ["DAFTAR HADIR & REKAP NILAI PRAMUKA"],
       [semester],
-      ["SD NEGERI BENCONGAN III"],
+      [sanitizeSpreadsheetCell(schoolTitle)],
       [`TAHUN AJARAN ${tahunAjaran}`],
       [""], 
       ["NO", "NAMA SISWA", "KELAS", "REGU", "TOTAL HADIR", "TOTAL PERTEMUAN", "PERSENTASE", "NILAI", "DESKRIPSI"] 
     ];
 
-    // 2. Data Siswa
+    // 2. Data Siswa (dengan proteksi Formula Injection)
     dataToExport.forEach((row, index) => {
       excelRows.push([
         index + 1,
-        row['Nama Lengkap'],
-        row['Kelas'],
-        row['Regu'] || '-',
+        sanitizeSpreadsheetCell(row['Nama Lengkap']),
+        sanitizeSpreadsheetCell(row['Kelas']),
+        sanitizeSpreadsheetCell(row['Regu'] || '-'),
         row['Total Hadir'] ?? 0,
         row['Total Pertemuan'] ?? 0,
-        row.Persentase || '0%',
-        row['Predikat Nilai'],
-        row['Keterangan']
+        sanitizeSpreadsheetCell(row.Persentase || '0%'),
+        sanitizeSpreadsheetCell(row['Predikat Nilai']),
+        sanitizeSpreadsheetCell(row['Keterangan'])
       ]);
     });
 
@@ -150,7 +162,7 @@ export default function LaporanNilaiPage() {
 
     // 6. Masukkan Tanda Tangan mulai dari Kolom H (indeks 7)
     XLSX.utils.sheet_add_aoa(worksheet, [
-      ["Tangerang, " + new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })],
+      [`${schoolCity}, ` + new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })],
       ["Pembina Pramuka"],
       [""],
       [""],
@@ -327,6 +339,10 @@ export default function LaporanNilaiPage() {
       render: (val: string) => <span className="text-xs text-slate-600">{val}</span>
     },
   ];
+
+  if (loading) {
+    return <PageLoader text="Memuat Laporan Nilai & Kehadiran..." />;
+  }
 
   return (
     <div className="min-h-screen bg-slate-100 text-slate-800 p-4 md:p-8 font-sans">

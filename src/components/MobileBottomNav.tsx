@@ -13,8 +13,9 @@ import {
 export default function MobileBottomNav() {
   const pathname = usePathname();
 
-  // Jangan tampilkan bottom nav di halaman login
-  if (pathname === '/login') return null;
+  if (pathname === '/login' || pathname === '/register' || pathname.startsWith('/superadmin')) {
+    return null;
+  }
 
   const navItems = [
     {

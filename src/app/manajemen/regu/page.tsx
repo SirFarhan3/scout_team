@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import {
+  App,
   Table,
   Card,
   Button,
@@ -10,7 +11,6 @@ import {
   Input,
   Select,
   Popconfirm,
-  message,
 } from 'antd';
 import {
   PlusOutlined,
@@ -23,6 +23,7 @@ import {
   UserAddOutlined,
 } from '@ant-design/icons';
 import Header from '@/components/Header';
+import PageLoader from '@/components/PageLoader';
 import { authService } from '@/lib/auth';
 import {
   getBestTeams,
@@ -38,11 +39,13 @@ import ScoreDetailModal from '@/components/ranking/ScoreDetailModal';
 import MinigameScoreModal from '@/components/ranking/MinigameScoreModal';
 
 export default function ManajemenReguPage() {
+  const { message } = App.useApp();
   const [teams, setTeams] = useState<BestTeamResult[]>([]);
   const [students, setStudents] = useState<BestStudentResult[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
 
   // Form Tambah Regu Baru
+  const [showCreateModal, setShowCreateModal] = useState<boolean>(false);
   const [newTeamName, setNewTeamName] = useState<string>('');
   const [newTeamGender, setNewTeamGender] = useState<string>('Putra');
   const [creating, setCreating] = useState<boolean>(false);
@@ -102,12 +105,16 @@ export default function ManajemenReguPage() {
         window.location.href = '/login';
         return;
       }
+      if (user.school && !user.school.subscription_active) {
+        window.location.href = '/billing';
+        return;
+      }
       loadData();
     });
   }, []);
 
-  const handleCreateTeam = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleCreateTeam = async (e?: React.FormEvent | React.MouseEvent) => {
+    e?.preventDefault?.();
     if (!newTeamName.trim()) {
       message.warning('Nama regu tidak boleh kosong');
       return;
@@ -121,6 +128,7 @@ export default function ManajemenReguPage() {
       });
       message.success(`Regu "${newTeamName.trim()}" berhasil ditambahkan!`);
       setNewTeamName('');
+      setShowCreateModal(false);
       await loadData();
     } catch (err: any) {
       message.error(err.message || 'Gagal menambahkan regu');
@@ -344,6 +352,10 @@ export default function ManajemenReguPage() {
     },
   ];
 
+  if (loading) {
+    return <PageLoader text="Memuat Data Regu & Anggota..." />;
+  }
+
   return (
     <div className="min-h-screen bg-slate-100 text-slate-800 p-4 md:p-8 font-sans">
       <div className="max-w-6xl mx-auto space-y-6">
@@ -352,60 +364,7 @@ export default function ManajemenReguPage() {
           subtitle="Kelola Daftar Regu, Anggota Regu, serta Pantau Skor Kehadiran & Minigames"
         />
 
-        {/* 1. Form Tambah Regu Baru */}
-        <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100">
-          <h2 className="text-base font-bold text-slate-900 mb-1">
-            🚩 Tambah Regu Baru
-          </h2>
-          <p className="text-xs text-slate-400 mb-4">
-            Masukkan nama regu (misal: Regu Elang, Regu Harimau, Regu Melati) dan pilih kategorinya.
-          </p>
-
-          <form
-            onSubmit={handleCreateTeam}
-            className="grid grid-cols-1 sm:grid-cols-4 gap-3 items-end"
-          >
-            <div className="sm:col-span-2">
-              <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">
-                Nama Regu
-              </label>
-              <input
-                type="text"
-                placeholder="Contoh: Regu Rajawali / Regu Edelweis..."
-                value={newTeamName}
-                onChange={(e) => setNewTeamName(e.target.value)}
-                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition"
-              />
-            </div>
-
-            <div>
-              <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">
-                Kategori Regu
-              </label>
-              <select
-                value={newTeamGender}
-                onChange={(e) => setNewTeamGender(e.target.value)}
-                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs text-slate-800 font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition"
-              >
-                <option value="Putra">Putra</option>
-                <option value="Putri">Putri</option>
-                <option value="Campuran">Campuran</option>
-              </select>
-            </div>
-
-            <Button
-              htmlType="submit"
-              type="primary"
-              loading={creating}
-              icon={<PlusOutlined />}
-              className="bg-indigo-600 hover:!bg-indigo-700 h-10 rounded-xl font-bold text-xs w-full"
-            >
-              Tambah Regu
-            </Button>
-          </form>
-        </div>
-
-        {/* 2. Filter & Tabel Regu */}
+        {/* Filter & Tabel Regu */}
         <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100 space-y-4">
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
             <div>
@@ -417,7 +376,7 @@ export default function ManajemenReguPage() {
               </p>
             </div>
 
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               <Button
                 icon={<ReloadOutlined spin={loading} />}
                 onClick={loadData}
@@ -433,8 +392,59 @@ export default function ManajemenReguPage() {
               >
                 Lihat Klasemen Lengkap
               </Button>
+              <Button
+                type="primary"
+                icon={<PlusOutlined />}
+                onClick={() => setShowCreateModal(true)}
+                className="bg-indigo-600 hover:!bg-indigo-700 rounded-xl text-xs font-bold h-9"
+              >
+                Tambah Regu
+              </Button>
             </div>
           </div>
+
+          <Modal
+            title={<span className="font-bold text-sm">🚩 Tambah Regu Baru</span>}
+            open={showCreateModal}
+            onCancel={() => setShowCreateModal(false)}
+            onOk={handleCreateTeam}
+            confirmLoading={creating}
+            okText="Tambah Regu"
+            cancelText="Batal"
+            centered
+          >
+            <div className="space-y-4 py-2">
+              <p className="text-xs text-slate-400">
+                Masukkan nama regu (misal: Regu Elang, Regu Harimau, Regu Melati) dan pilih kategorinya.
+              </p>
+              <div>
+                <label className="block text-[11px] font-bold text-slate-500 uppercase mb-1">
+                  Nama Regu
+                </label>
+                <Input
+                  placeholder="Contoh: Regu Rajawali / Regu Edelweis..."
+                  value={newTeamName}
+                  onChange={(e) => setNewTeamName(e.target.value)}
+                  className="rounded-xl"
+                />
+              </div>
+              <div>
+                <label className="block text-[11px] font-bold text-slate-500 uppercase mb-1">
+                  Kategori Regu
+                </label>
+                <Select
+                  value={newTeamGender}
+                  onChange={(val) => setNewTeamGender(val)}
+                  className="w-full"
+                  options={[
+                    { value: 'Putra', label: 'Putra' },
+                    { value: 'Putri', label: 'Putri' },
+                    { value: 'Campuran', label: 'Campuran' },
+                  ]}
+                />
+              </div>
+            </div>
+          </Modal>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 border-t border-slate-100">
             <input

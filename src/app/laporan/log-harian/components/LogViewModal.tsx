@@ -35,7 +35,7 @@ export default function LogViewModal({ isOpen, viewData, onClose, onPrint }: Log
             )
             .join('');
 
-    const WindowPrt = window.open('', '_blank', 'left=0,top=0,width=900,height=650,noopener,noreferrer');
+    const WindowPrt = window.open('', '_blank', 'left=0,top=0,width=900,height=650');
     if (WindowPrt) {
       WindowPrt.document.open();
       WindowPrt.document.write(`

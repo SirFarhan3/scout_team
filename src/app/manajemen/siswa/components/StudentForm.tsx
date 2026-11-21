@@ -1,25 +1,38 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
-import { message, Radio } from 'antd';
+import { App, Modal, Radio } from 'antd';
+import { QrcodeOutlined } from '@ant-design/icons';
 import { CreateStudentInput } from '@/types/student';
 import { getAllTeams, TeamRecord } from '@/services/scoreService';
+import { extractQrCodeId } from '@/lib/sanitize';
+import QrCodePickerModal from './QrCodePickerModal';
 
 interface StudentFormProps {
+  open: boolean;
+  onClose: () => void;
   onSuccess: () => void;
   onSubmitStudent: (studentData: CreateStudentInput) => Promise<any>;
 }
 
-const KELAS_OPTIONS = ['6A', '6B', '5A', '5B'];
+const KELAS_PRESETS = ['5A', '5B', '6A', '6B', '7A', '8A', '9A', 'X', 'XI', 'XII'];
 
-export default function StudentForm({ onSuccess, onSubmitStudent }: StudentFormProps) {
+export default function StudentForm({
+  open,
+  onClose,
+  onSuccess,
+  onSubmitStudent,
+}: StudentFormProps) {
+  const { message } = App.useApp();
   const [fullName, setFullName] = useState('');
-  const [className, setClassName] = useState(KELAS_OPTIONS[0]);
+  const [className, setClassName] = useState('6A');
   const [gender, setGender] = useState<'Putra' | 'Putri'>('Putra');
   const [allTeams, setAllTeams] = useState<TeamRecord[]>([]);
   const [loadingTeams, setLoadingTeams] = useState(true);
   const [groupName, setGroupName] = useState('');
   const [nta, setNta] = useState('');
+  const [customQrId, setCustomQrId] = useState('');
+  const [scannerOpen, setScannerOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
   // Ambil daftar regu dari database
@@ -51,37 +64,39 @@ export default function StudentForm({ onSuccess, onSubmitStudent }: StudentFormP
     );
   }, [allTeams, gender]);
 
-  // Set default pilihan regu setiap kali daftar regu atau pilihan gender berubah
+  // Reset pilihan regu jika gender berubah dan regu lama tidak cocok dengan gender baru
   useEffect(() => {
-    if (filteredTeams.length > 0) {
-      const stillValid = filteredTeams.some((t) => t.name === groupName);
-      if (!stillValid) {
-        setGroupName(filteredTeams[0].name);
-      }
-    } else {
+    if (groupName && !filteredTeams.some((t) => t.name === groupName)) {
       setGroupName('');
     }
   }, [filteredTeams, groupName]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!fullName || !className || !groupName) {
-      message.error('Nama, Kelas, dan Regu wajib diisi!');
+    if (!fullName || !className) {
+      message.error('Nama Lengkap dan Kelas wajib diisi!');
       return;
     }
 
     try {
       setSubmitting(true);
+      const extractedQr = customQrId.trim() ? extractQrCodeId(customQrId) : undefined;
       await onSubmitStudent({
         full_name: fullName,
         class_name: className,
-        group_name: groupName,
+        group_name: groupName || undefined,
         nta: nta || undefined,
+        qr_code_id: extractedQr || undefined,
       });
 
-      message.success('Berhasil menambah siswa! QR Code ID di-generate otomatis.');
+      message.success(
+        extractedQr
+          ? `Berhasil menambah siswa dengan QR Code ID: ${extractedQr}`
+          : 'Berhasil menambah siswa! QR Code ID di-generate otomatis.'
+      );
       setFullName('');
       setNta('');
+      setCustomQrId('');
       onSuccess();
     } catch (error: any) {
       message.error(`Gagal menyimpan: ${error.message}`);
@@ -91,18 +106,20 @@ export default function StudentForm({ onSuccess, onSubmitStudent }: StudentFormP
   };
 
   return (
-    <div className="bg-white rounded-3xl p-6 md:p-8 shadow-xl shadow-slate-200/50 border border-slate-100">
-      <div className="flex items-center gap-3 mb-6">
-        <div className="w-10 h-10 rounded-2xl bg-indigo-100 text-indigo-600 flex items-center justify-center font-bold text-xl">
-          ➕
+    <Modal
+      title={
+        <div className="text-base font-bold text-slate-800 pb-2 border-b border-slate-100">
+          ➕ Tambah Anggota Pramuka Baru
         </div>
-        <div>
-          <h2 className="text-xl font-bold text-slate-800">Tambah Anggota Penggalang</h2>
-          <p className="text-xs text-slate-400">QR Code ID akan dibuatkan otomatis oleh sistem</p>
-        </div>
-      </div>
-
-      <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      }
+      open={open}
+      onCancel={onClose}
+      footer={null}
+      centered
+      width={600}
+      className="rounded-3xl overflow-hidden"
+    >
+      <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-3">
         {/* Input Nama Lengkap */}
         <div className="md:col-span-2">
           <label className="block text-xs font-bold text-slate-600 uppercase mb-1">
@@ -141,51 +158,53 @@ export default function StudentForm({ onSuccess, onSubmitStudent }: StudentFormP
           </div>
         </div>
 
-        {/* Dropdown Kelas */}
+        {/* Input Kelas Fleksibel */}
         <div>
           <label className="block text-xs font-bold text-slate-600 uppercase mb-1">
             Kelas *
           </label>
-          <select
+          <input
+            type="text"
+            list="kelas-preset-list"
+            placeholder="Contoh: 6A, 7B, X-1"
             value={className}
             onChange={(e) => setClassName(e.target.value)}
             className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3 text-slate-800 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition"
+            required
+          />
+          <datalist id="kelas-preset-list">
+            {KELAS_PRESETS.map((k) => (
+              <option key={k} value={k} />
+            ))}
+          </datalist>
+        </div>
+
+        {/* Dropdown Regu dari Database (Opsional, Sesuai Gender Radio Button) */}
+        <div>
+          <label className="block text-xs font-bold text-slate-600 uppercase mb-1">
+            Nama Regu ({gender}) (Opsional)
+          </label>
+          <select
+            value={groupName}
+            onChange={(e) => setGroupName(e.target.value)}
+            disabled={loadingTeams}
+            className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3 text-slate-800 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition disabled:opacity-50"
           >
-            {KELAS_OPTIONS.map((k) => (
-              <option key={k} value={k}>
-                Kelas {k}
+            <option value="">
+              {loadingTeams
+                ? 'Memuat daftar regu...'
+                : '-- Tanpa Regu / Belum Ditentukan --'}
+            </option>
+            {filteredTeams.map((team) => (
+              <option key={team.id} value={team.name}>
+                {team.name}
               </option>
             ))}
           </select>
         </div>
 
-        {/* Dropdown Regu dari Database (Sesuai Gender Radio Button) */}
-        <div>
-          <label className="block text-xs font-bold text-slate-600 uppercase mb-1">
-            Nama Regu ({gender}) *
-          </label>
-          <select
-            value={groupName}
-            onChange={(e) => setGroupName(e.target.value)}
-            disabled={loadingTeams || filteredTeams.length === 0}
-            className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3 text-slate-800 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition disabled:opacity-50"
-          >
-            {loadingTeams ? (
-              <option value="">Memuat daftar regu...</option>
-            ) : filteredTeams.length === 0 ? (
-              <option value="">Belum ada regu {gender} di database</option>
-            ) : (
-              filteredTeams.map((team) => (
-                <option key={team.id} value={team.name}>
-                  {team.name}
-                </option>
-              ))
-            )}
-          </select>
-        </div>
-
         {/* Input NTA */}
-        <div className="md:col-span-2">
+        <div>
           <label className="block text-xs font-bold text-slate-600 uppercase mb-1">
             NTA (Opsional)
           </label>
@@ -198,17 +217,66 @@ export default function StudentForm({ onSuccess, onSubmitStudent }: StudentFormP
           />
         </div>
 
+        {/* Input / Scan QR Code ID / Link KTA AyoPramuka */}
+        <div>
+          <label className="block text-xs font-bold text-slate-600 uppercase mb-1">
+            QR Code ID / Link KTA AyoPramuka (Opsional)
+          </label>
+          <div className="flex gap-2">
+            <input
+              type="text"
+              placeholder="Kosongkan utk auto, atau tempel link AyoPramuka..."
+              value={customQrId}
+              onChange={(e) => {
+                const val = e.target.value;
+                setCustomQrId(val.includes('/') ? extractQrCodeId(val) : val);
+              }}
+              className="flex-1 min-w-0 bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3 text-slate-800 placeholder-slate-400 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition"
+            />
+            <button
+              type="button"
+              onClick={() => setScannerOpen(true)}
+              className="shrink-0 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 font-bold text-xs px-3.5 py-3 rounded-2xl transition inline-flex items-center gap-1.5"
+              title="Scan QR Kartu KTA AyoPramuka"
+            >
+              <QrcodeOutlined className="text-base" />
+              <span>Scan QR</span>
+            </button>
+          </div>
+        </div>
+
         {/* Button Submit */}
-        <div className="md:col-span-2 pt-2">
+        <div className="md:col-span-2 flex justify-end gap-2 pt-3 border-t border-slate-100">
+          <button
+            type="button"
+            onClick={onClose}
+            className="px-4 py-2.5 rounded-xl border border-slate-200 text-xs font-bold text-slate-600 hover:bg-slate-50 transition"
+          >
+            Batal
+          </button>
           <button
             type="submit"
-            disabled={submitting || loadingTeams || !groupName}
-            className="w-full bg-indigo-600 hover:bg-indigo-700 active:scale-[0.99] text-white font-bold py-3.5 px-6 rounded-2xl shadow-lg shadow-indigo-200 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+            disabled={submitting}
+            className="bg-indigo-600 hover:bg-indigo-700 active:scale-[0.99] text-white text-xs font-bold py-2.5 px-5 rounded-xl shadow-md shadow-indigo-200 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
           >
-            {submitting ? 'Generating QR & Saving...' : '✨ Simpan & Generate QR Code'}
+            {submitting
+              ? 'Menyimpan...'
+              : customQrId.trim()
+              ? `✨ Simpan (QR ID: ${extractQrCodeId(customQrId)})`
+              : '✨ Simpan & Generate QR'}
           </button>
         </div>
       </form>
-    </div>
+
+      <QrCodePickerModal
+        open={scannerOpen}
+        onClose={() => setScannerOpen(false)}
+        onDetected={(extractedId) => {
+          setCustomQrId(extractedId);
+          setScannerOpen(false);
+          message.success(`QR KTA berhasil dibaca! Kode QR ID: ${extractedId}`);
+        }}
+      />
+    </Modal>
   );
 }

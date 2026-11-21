@@ -2,8 +2,8 @@ import crypto from 'crypto';
 import { containsDangerousCode } from '@/lib/sanitize';
 
 /**
- * Verifikasi Origin / Sec-Fetch-Site untuk mencegah serangan CSRF (Cross-Site Request Forgery)
- * pada endpoint mutasi / AI internal.
+ * Verifikasi Origin / Referer / Sec-Fetch-* untuk mencegah serangan CSRF
+ * pada seluruh endpoint mutasi internal.
  */
 export function isSameOriginRequest(request: Request): boolean {
   const fetchSite = request.headers.get('sec-fetch-site');
@@ -11,23 +11,56 @@ export function isSameOriginRequest(request: Request): boolean {
     return false;
   }
 
-  const origin = request.headers.get('origin');
-  const host = request.headers.get('x-forwarded-host') || request.headers.get('host');
-
-  if (!origin) {
-    // Jika Origin header tidak ada pada browser POST, tolak apabila Sec-Fetch-Mode = cors/no-cors lintas situs
-    const fetchMode = request.headers.get('sec-fetch-mode');
-    if (fetchMode === 'no-cors') return false;
-    return true;
+  const fetchMode = request.headers.get('sec-fetch-mode');
+  if (fetchMode === 'no-cors') {
+    return false;
   }
 
+  const host = request.headers.get('x-forwarded-host') || request.headers.get('host');
   if (!host) return false;
 
-  try {
-    const parsedOrigin = new URL(origin);
-    return parsedOrigin.host === host;
-  } catch {
+  const origin = request.headers.get('origin');
+  if (origin) {
+    try {
+      return new URL(origin).host === host;
+    } catch {
+      return false;
+    }
+  }
+
+  const referer = request.headers.get('referer');
+  if (referer) {
+    try {
+      return new URL(referer).host === host;
+    } catch {
+      return false;
+    }
+  }
+
+  // Untuk mutasi (POST/PUT/PATCH/DELETE), tolak jika tidak ada Origin maupun Referer
+  // kecuali untuk request same-origin browser yang pasti menyertakan Origin/Referer.
+  const method = request.method.toUpperCase();
+  if (['POST', 'PUT', 'PATCH', 'DELETE'].includes(method)) {
     return false;
+  }
+
+  return true;
+}
+
+/**
+ * Memastikan mutasi datang dari origin yang sama dan bertipe JSON (defense-in-depth anti-CSRF).
+ */
+export function assertSameOriginMutation(request: Request): void {
+  if (!isSameOriginRequest(request)) {
+    throw new CsrfError('Akses lintas origin atau permintaan tidak sah ditolak.');
+  }
+}
+
+export class CsrfError extends Error {
+  status = 403;
+  constructor(message: string) {
+    super(message);
+    this.name = 'CsrfError';
   }
 }
 

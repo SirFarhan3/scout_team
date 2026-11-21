@@ -1,10 +1,11 @@
 'use client';
 
 import { useEffect, useState, useMemo } from 'react';
-import { message, Segmented } from 'antd';
+import { App, Segmented } from 'antd';
 import { TableOutlined, AppstoreOutlined, QrcodeOutlined } from '@ant-design/icons';
 import Header from '@/components/Header';
-import { authService } from '@/lib/auth';
+import PageLoader from '@/components/PageLoader';
+import { authService, UserSessionData } from '@/lib/auth';
 import { printStudentQrSheet } from '@/lib/qrBatchDownload';
 import { studentService } from '@/services/studentService';
 import { Student, CreateStudentInput } from '@/types/student';
@@ -14,6 +15,8 @@ import StudentEditModal from './components/StudentEditModal'; // <--- Import mod
 import StudentQRModal from './components/StudentQRModal';
 
 export default function StudentManagementPage() {
+  const { message } = App.useApp();
+  const [currentUser, setCurrentUser] = useState<UserSessionData | null>(null);
   const [students, setStudents] = useState<Student[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
@@ -50,6 +53,11 @@ export default function StudentManagementPage() {
         window.location.href = '/login';
         return;
       }
+      if (user.school && !user.school.subscription_active) {
+        window.location.href = '/billing';
+        return;
+      }
+      setCurrentUser(user);
       const data = await studentService.getAllStudents();
       setStudents(data || []);
     } catch (error: any) {
@@ -158,15 +166,11 @@ export default function StudentManagementPage() {
     }
   };
 
+  const canManageStudents =
+    currentUser?.role === 'admin' || currentUser?.role === 'pembina';
+
   if (loading) {
-    return (
-      <div className="min-h-screen bg-slate-100 flex items-center justify-center font-sans">
-        <div className="flex items-center gap-3 bg-white px-6 py-4 rounded-3xl shadow-lg border border-slate-100">
-          <span className="animate-spin text-2xl">⚡</span>
-          <span className="text-sm font-bold text-slate-700">Memuat Data...</span>
-        </div>
-      </div>
-    );
+    return <PageLoader text="Memuat Data Anggota Pramuka..." />;
   }
 
   return (
@@ -212,12 +216,14 @@ export default function StudentManagementPage() {
                 {printingQr ? 'Menyiapkan...' : `Cetak QR (${filteredStudents.length})`}
               </button>
 
-              <button
-                onClick={() => setShowForm(!showForm)}
-                className="flex-1 sm:flex-initial bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white text-xs font-bold px-4 py-2.5 rounded-2xl shadow-lg shadow-indigo-200 transition flex items-center justify-center gap-1.5 whitespace-nowrap"
-              >
-                {showForm ? '❌ Batal' : '➕ Tambah Anggota'}
-              </button>
+              {canManageStudents && (
+                <button
+                  onClick={() => setShowForm(true)}
+                  className="flex-1 sm:flex-initial bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white text-xs font-bold px-4 py-2.5 rounded-2xl shadow-lg shadow-indigo-200 transition flex items-center justify-center gap-1.5 whitespace-nowrap"
+                >
+                  ➕ Tambah Anggota
+                </button>
+              )}
             </div>
           </div>
 
@@ -269,8 +275,10 @@ export default function StudentManagementPage() {
         </div>
 
         {/* Modal Form Tambah Siswa */}
-        {showForm && (
+        {canManageStudents && (
           <StudentForm
+            open={showForm}
+            onClose={() => setShowForm(false)}
             onSuccess={() => setShowForm(false)}
             onSubmitStudent={handleCreateStudent}
           />
@@ -292,8 +300,8 @@ export default function StudentManagementPage() {
           <StudentTable 
             students={filteredStudents} 
             loading={loading}
-            onEdit={handleEditStudent}
-            onDelete={handleDeleteStudent}
+            onEdit={canManageStudents ? handleEditStudent : undefined}
+            onDelete={canManageStudents ? handleDeleteStudent : undefined}
             onPrintQR={handlePrintQR}
           />
         ) : (
@@ -355,20 +363,24 @@ export default function StudentManagementPage() {
                       >
                         <span>🖨️ QR</span>
                       </button>
-                      <button
-                        onClick={() => handleEditStudent(student)}
-                        className="flex-1 bg-amber-50 hover:bg-amber-100 text-amber-700 text-xs font-bold py-2 px-3 rounded-xl transition border border-amber-200/60 flex items-center justify-center gap-1.5"
-                        title="Edit Anggota"
-                      >
-                        <span>✏️ Edit</span>
-                      </button>
-                      <button
-                        onClick={() => handleDeleteStudent(student.id)}
-                        className="bg-rose-50 hover:bg-rose-100 text-rose-700 text-xs font-bold py-2 px-3 rounded-xl transition border border-rose-200/60 flex items-center justify-center"
-                        title="Hapus Anggota"
-                      >
-                        <span>🗑️</span>
-                      </button>
+                      {canManageStudents && (
+                        <>
+                          <button
+                            onClick={() => handleEditStudent(student)}
+                            className="flex-1 bg-amber-50 hover:bg-amber-100 text-amber-700 text-xs font-bold py-2 px-3 rounded-xl transition border border-amber-200/60 flex items-center justify-center gap-1.5"
+                            title="Edit Anggota"
+                          >
+                            <span>✏️ Edit</span>
+                          </button>
+                          <button
+                            onClick={() => handleDeleteStudent(student.id)}
+                            className="bg-rose-50 hover:bg-rose-100 text-rose-700 text-xs font-bold py-2 px-3 rounded-xl transition border border-rose-200/60 flex items-center justify-center"
+                            title="Hapus Anggota"
+                          >
+                            <span>🗑️</span>
+                          </button>
+                        </>
+                      )}
                     </div>
 
                   </div>

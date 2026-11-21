@@ -1,12 +1,14 @@
 'use client';
 
 import { useEffect, useState, useCallback, useMemo } from 'react';
-import { message } from 'antd';
+import { App } from 'antd';
 import dynamic from 'next/dynamic';
 import Header from '@/components/Header';
+import PageLoader from '@/components/PageLoader';
 import { authService, UserSessionData } from '@/lib/auth';
 import { attendanceService } from '@/services/attendanceService';
 import { AttendanceRecord } from '@/types/attendance';
+import { extractQrCodeId } from '@/lib/sanitize';
 import RecentScansList from './components/RecentScansList';
 
 const NativeQrScanner = dynamic(() => import('./components/NativeQrScanner'), {
@@ -14,6 +16,7 @@ const NativeQrScanner = dynamic(() => import('./components/NativeQrScanner'), {
 });
 
 export default function ScanPage() {
+  const { message } = App.useApp();
   const [currentUser, setCurrentUser] = useState<UserSessionData | null>(null);
   const [loading, setLoading] = useState(true);
   const [recentScans, setRecentScans] = useState<AttendanceRecord[]>([]);
@@ -40,6 +43,10 @@ export default function ScanPage() {
       const user = await authService.getCurrentUser();
       if (!user) {
         window.location.href = '/login';
+        return;
+      }
+      if (user.school && !user.school.subscription_active) {
+        window.location.href = '/billing';
         return;
       }
       setCurrentUser(user);
@@ -69,8 +76,9 @@ export default function ScanPage() {
         setProcessing(true);
         setScanError(null);
 
+        const extractedQr = extractQrCodeId(decodedText);
         const result = await attendanceService.recordAttendanceByQr({
-          qr_code_id: decodedText.trim(),
+          qr_code_id: extractedQr,
           recorded_by: currentUser.id,
           status: 'Hadir',
         });
@@ -204,14 +212,7 @@ export default function ScanPage() {
   };
 
   if (loading) {
-    return (
-      <div className="min-h-screen bg-slate-100 flex items-center justify-center font-sans">
-        <div className="flex items-center gap-3 bg-white px-6 py-4 rounded-3xl shadow-lg border border-slate-100">
-          <span className="animate-spin text-2xl">⚡</span>
-          <span className="text-sm font-bold text-slate-700">Menyiapkan Scanner Kamera...</span>
-        </div>
-      </div>
-    );
+    return <PageLoader text="Menyiapkan Scanner Kamera..." />;
   }
 
   return (

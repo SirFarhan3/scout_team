@@ -1,92 +1,141 @@
-import { supabase } from '@/lib/supabase';
-import { isAllowedRole, AllowedRole, assertSafeText } from '@/lib/sanitize';
+import { AllowedRole } from '@/lib/sanitize';
+import { apiFetch, clearJwtToken, getJwtToken, setJwtToken } from '@/lib/apiClient';
+import type { SchoolDTO, SchoolUsageStats } from '@/types/school';
 
 export interface UserSessionData {
   id: string;
   username: string;
   full_name: string;
   role: AllowedRole;
+  school_id: string | null;
+  school?: SchoolDTO | null;
+  usage?: SchoolUsageStats | null;
 }
 
-const SESSION_KEY = 'scout_session';
+export interface RegisterSchoolInput {
+  schoolName: string;
+  city: string;
+  gugusdepan?: string;
+  npsn?: string;
+  contactPhone?: string;
+  fullName: string;
+  username: string;
+  password: string;
+  plan?: 'trial' | 'basic' | 'pro' | 'enterprise';
+  billingCycle?: 'monthly' | 'yearly';
+}
+
+let cachedUser: UserSessionData | null = null;
 
 export const authService = {
-  // Login menggunakan Username & Password
+  getCachedUser(): UserSessionData | null {
+    return cachedUser;
+  },
+
   async login(username: string, pass: string): Promise<UserSessionData> {
-    const cleanUsername = assertSafeText(username, 'Username', 50);
-    if (!cleanUsername || !pass) {
-      throw new Error('Username dan password wajib diisi!');
+    cachedUser = null;
+    clearJwtToken();
+    const res = await apiFetch<{ success: true; token?: string; user: UserSessionData }>(
+      '/api/auth/login',
+      {
+        method: 'POST',
+        body: JSON.stringify({ username, password: pass }),
+      }
+    );
+    if (res.token) {
+      setJwtToken(res.token);
     }
+    cachedUser = res.user;
+    return res.user;
+  },
 
-    // 1. Cari user TANPA menarik kolom password_hash ke client
-    const { data: user, error } = await supabase
-      .from('users')
-      .select('id, username, full_name, role')
-      .eq('username', cleanUsername)
-      .limit(1);
-
-    const foundUser = user && user.length > 0 ? user[0] : null;
-
-    if (error || !foundUser) {
-      // Pesan seragam untuk mencegah User Enumeration
-      throw new Error('Username atau password salah!');
-    }
-
-    // 2. Verifikasi Password menggunakan pgcrypto crypt() di Supabase RPC
-    const { data: isValid, error: authError } = await supabase.rpc('verify_user_password', {
-      user_id: foundUser.id,
-      password_input: pass,
+  async registerSchool(input: RegisterSchoolInput): Promise<{
+    user: UserSessionData;
+    invoice?: Record<string, unknown> | null;
+  }> {
+    cachedUser = null;
+    clearJwtToken();
+    const res = await apiFetch<{
+      success: true;
+      token?: string;
+      user: UserSessionData;
+      invoice?: Record<string, unknown> | null;
+    }>('/api/auth/register', {
+      method: 'POST',
+      body: JSON.stringify(input),
     });
-
-    if (authError || !isValid) {
-      // Pesan seragam untuk mencegah User Enumeration
-      throw new Error('Username atau password salah!');
+    if (res.token) {
+      setJwtToken(res.token);
     }
+    cachedUser = res.user;
+    return { user: res.user, invoice: res.invoice };
+  },
 
-    const userData: UserSessionData = {
-      id: String(foundUser.id),
-      username: String(foundUser.username),
-      full_name: String(foundUser.full_name),
-      role: isAllowedRole(foundUser.role) ? foundUser.role : 'instruktur',
+  async logout(): Promise<void> {
+    cachedUser = null;
+    const token = getJwtToken();
+    clearJwtToken();
+    const headers: Record<string, string> = {
+      'X-Requested-With': 'XMLHttpRequest',
     };
-
-    // 3. Simpan session sementara di localStorage (disarankan migrasi ke HttpOnly cookie server)
-    if (typeof window !== 'undefined') {
-      localStorage.setItem(SESSION_KEY, JSON.stringify(userData));
+    if (token) {
+      headers.Authorization = `Bearer ${token}`;
     }
-
-    return userData;
+    await fetch('/api/auth/logout', {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers,
+    }).catch(() => {});
   },
 
-  // Logout session
-  async logout() {
-    if (typeof window !== 'undefined') {
-      localStorage.removeItem(SESSION_KEY);
-    }
-  },
-
-  // Ambil data User dari session tersimpan dengan validasi skema
   async getCurrentUser(): Promise<UserSessionData | null> {
     if (typeof window === 'undefined') return null;
     try {
-      const raw = localStorage.getItem(SESSION_KEY);
-      if (!raw) return null;
-      const parsed = JSON.parse(raw);
-      if (
-        !parsed ||
-        typeof parsed !== 'object' ||
-        typeof parsed.id !== 'string' ||
-        typeof parsed.username !== 'string' ||
-        typeof parsed.full_name !== 'string' ||
-        !isAllowedRole(parsed.role)
-      ) {
-        localStorage.removeItem(SESSION_KEY);
+      localStorage.removeItem('scout_session');
+      const token = getJwtToken();
+      const headers: Record<string, string> = {
+        'X-Requested-With': 'XMLHttpRequest',
+      };
+      if (token) {
+        headers.Authorization = `Bearer ${token}`;
+      }
+
+      const res = await fetch('/api/auth/me', {
+        method: 'GET',
+        credentials: 'same-origin',
+        cache: 'no-store',
+        headers,
+      });
+      if (!res.ok) {
+        if (res.status === 401) {
+          cachedUser = null;
+          clearJwtToken();
+        }
         return null;
       }
-      return parsed as UserSessionData;
+      const data = await res.json();
+      if (!data?.success || !data?.user) return null;
+      if (data.token && typeof data.token === 'string') {
+        setJwtToken(data.token);
+      }
+      cachedUser = data.user as UserSessionData;
+      return cachedUser;
     } catch {
-      localStorage.removeItem(SESSION_KEY);
       return null;
     }
+  },
+
+  async changePassword(currentPassword: string, newPassword: string): Promise<string> {
+    const res = await apiFetch<{ success: true; token?: string; message: string }>(
+      '/api/auth/change-password',
+      {
+        method: 'POST',
+        body: JSON.stringify({ currentPassword, newPassword }),
+      }
+    );
+    if (res.token) {
+      setJwtToken(res.token);
+    }
+    return res.message;
   },
 };

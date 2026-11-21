@@ -1,9 +1,10 @@
 'use client';
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { message } from 'antd';
+import { App } from 'antd';
 import Header from '@/components/Header';
-import { authService } from '@/lib/auth';
+import PageLoader from '@/components/PageLoader';
+import { authService, UserSessionData } from '@/lib/auth';
 import {
   ProkerFilterBar,
   ProkerGeneratorModal,
@@ -12,10 +13,13 @@ import {
   ProkerViewModal,
 } from './components';
 import { ProkerItem } from '@/types/program-kerja';
-import { supabase } from '@/lib/supabase';
+import { prokerService } from '@/services/prokerService';
 import { assertSafeText } from '@/lib/sanitize';
+import { apiFetch } from '@/lib/apiClient';
 
 export default function ProkerTahunanPage() {
+  const { message } = App.useApp();
+  const [currentUser, setCurrentUser] = useState<UserSessionData | null>(null);
   // State untuk melacak apakah sedang mengedit data yang sudah ada
   const [editingId, setEditingId] = useState<string | null>(null);
 
@@ -41,13 +45,17 @@ export default function ProkerTahunanPage() {
   const [prokers, setProkers] = useState<ProkerItem[]>([]);
   const [loadingTable, setLoadingTable] = useState(true);
 
-  // Fetch data dari Supabase saat halaman pertama kali dimuat
   useEffect(() => {
     authService.getCurrentUser().then((user) => {
       if (!user) {
         window.location.href = '/login';
         return;
       }
+      if (user.school && !user.school.subscription_active) {
+        window.location.href = '/billing';
+        return;
+      }
+      setCurrentUser(user);
       fetchProkers();
     });
   }, []);
@@ -55,16 +63,11 @@ export default function ProkerTahunanPage() {
   const fetchProkers = async () => {
     try {
       setLoadingTable(true);
-      const { data, error } = await supabase
-        .from('program_kerja')
-        .select('*')
-        .order('created_at', { ascending: false });
-
-      if (error) throw error;
-      if (data) setProkers(data);
+      const data = await prokerService.getAllProkers();
+      setProkers(data);
     } catch (error: any) {
       console.error('Gagal memuat data program kerja:', error.message);
-      message.error('Gagal memuat arsip program kerja dari database.');
+      message.error(error.message || 'Gagal memuat arsip program kerja dari database.');
     } finally {
       setLoadingTable(false);
     }
@@ -75,22 +78,14 @@ export default function ProkerTahunanPage() {
     try {
       setGenerating(true);
 
-      const res = await fetch('/api/program-kerja', {
+      const data = await apiFetch<{
+        success: boolean;
+        kegiatan?: any[];
+        message?: string;
+      }>('/api/program-kerja', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(values),
       });
-
-      const rawText = await res.text();
-      if (rawText.trim().startsWith('<')) {
-        throw new Error('Server mengembalikan halaman HTML (Error 404/500).');
-      }
-
-      const data = JSON.parse(rawText);
-
-      if (!res.ok || !data.success) {
-        throw new Error(data.message || 'Terjadi kesalahan pada server AI.');
-      }
 
       setPreviewMeta({
         tahun_ajaran: values.tahunAjaran,
@@ -176,29 +171,12 @@ export default function ProkerTahunanPage() {
       };
 
       if (editingId) {
-        // PROSES UPDATE DATA KE SUPABASE
-        const { error } = await supabase
-          .from('program_kerja')
-          .update(payload)
-          .eq('id', editingId);
-
-        if (error) throw error;
-
-        // Update state lokal
-        setProkers(prokers.map(p => p.id === editingId ? { ...p, ...payload } : p));
+        const updated = await prokerService.updateProker(editingId, payload);
+        setProkers(prokers.map((p) => (p.id === editingId ? updated : p)));
         message.success('Program Kerja berhasil diperbarui!');
       } else {
-        // PROSES INSERT DATA BARU KE SUPABASE
-        const { data, error } = await supabase
-          .from('program_kerja')
-          .insert([payload])
-          .select();
-
-        if (error) throw error;
-
-        if (data) {
-          setProkers([data[0], ...prokers]);
-        }
+        const created = await prokerService.createProker(payload);
+        setProkers([created, ...prokers]);
         message.success('Program Kerja berhasil disimpan ke Database!');
       }
 
@@ -235,16 +213,10 @@ export default function ProkerTahunanPage() {
     setIsPreviewModalOpen(true);
   };
 
-  // 6. Hapus arsip dari Database Supabase
+  // 6. Hapus arsip dari Database via Server API
   const handleDelete = async (id: string) => {
     try {
-      const { error } = await supabase
-        .from('program_kerja')
-        .delete()
-        .eq('id', id);
-
-      if (error) throw error;
-
+      await prokerService.deleteProker(id);
       setProkers(prokers.filter((p) => p.id !== id));
       message.success('Program kerja berhasil dihapus dari database.');
     } catch (error: any) {
@@ -266,6 +238,10 @@ export default function ProkerTahunanPage() {
       return matchesSearch && matchesGolongan;
     });
   }, [prokers, searchQuery, selectedGolongan]);
+
+  if (loadingTable) {
+    return <PageLoader text="Memuat Arsip Program Kerja..." />;
+  }
 
   return (
     <div className="min-h-screen bg-slate-100 text-slate-800 p-4 md:p-8 font-sans">
@@ -354,6 +330,7 @@ export default function ProkerTahunanPage() {
         <ProkerViewModal 
           isOpen={isViewModalOpen}
           viewData={selectedViewData}
+          schoolCity={currentUser?.school?.city}
           onClose={() => setIsViewModalOpen(false)}
         />
 

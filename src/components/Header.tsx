@@ -1,8 +1,15 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { message } from 'antd';
-import { SunOutlined, MoonOutlined, AppstoreOutlined } from '@ant-design/icons';
+import { App } from 'antd';
+import {
+  SunOutlined,
+  MoonOutlined,
+  AppstoreOutlined,
+  CreditCardOutlined,
+  SettingOutlined,
+  SafetyCertificateOutlined,
+} from '@ant-design/icons';
 import { authService, UserSessionData } from '@/lib/auth';
 import { useThemeMode } from '@/components/ThemeProvider';
 import MobileBottomNav from '@/components/MobileBottomNav';
@@ -13,13 +20,21 @@ interface HeaderProps {
 }
 
 export default function Header({
-  title = 'Manajemen Anggota Penggalang',
-  subtitle = 'Sistem Informasi Scout Management • Gugusdepan',
+  title = 'Scout Management Portal',
+  subtitle,
 }: HeaderProps) {
+  const { message } = App.useApp();
   const { mode, toggleTheme } = useThemeMode();
-  const [currentUser, setCurrentUser] = useState<UserSessionData | null>(null);
+  const [currentUser, setCurrentUser] = useState<UserSessionData | null>(() =>
+    authService.getCachedUser()
+  );
 
   useEffect(() => {
+    const cached = authService.getCachedUser();
+    if (cached) {
+      setCurrentUser(cached);
+      return;
+    }
     const fetchUser = async () => {
       const user = await authService.getCurrentUser();
       if (user) {
@@ -38,32 +53,100 @@ export default function Header({
     }
   };
 
+  const school = currentUser?.school;
+  const resolvedSubtitle =
+    subtitle ||
+    (school
+      ? `${school.name} • ${school.gugusdepan || school.city}`
+      : currentUser?.role === 'superadmin'
+      ? 'Platform Owner & Billing Control'
+      : 'Sistem Informasi Scout Management');
+
+  const isSuperadmin = currentUser?.role === 'superadmin';
+  const isAdmin = currentUser?.role === 'admin';
+  const showPaywallBanner = Boolean(school && !school.subscription_active);
+
+  const getPlanBadge = () => {
+    if (!school) return null;
+    if (!school.subscription_active) {
+      return (
+        <a
+          href="/billing"
+          className="text-[10px] font-black uppercase bg-rose-100 text-rose-700 border border-rose-200 px-2.5 py-0.5 rounded-full hover:bg-rose-200 transition"
+        >
+          ⛔ Langganan Tidak Aktif
+        </a>
+      );
+    }
+    const isTrial = school.subscription_status === 'trial';
+    const badgeClass = `text-[10px] font-black uppercase px-2.5 py-0.5 rounded-full border transition ${
+      isTrial
+        ? 'bg-amber-100 text-amber-800 border-amber-200 hover:bg-amber-200'
+        : 'bg-emerald-100 text-emerald-700 border-emerald-200 hover:bg-emerald-200'
+    }`;
+    const label = isTrial
+      ? `Trial (${school.remaining_days}h)`
+      : `${school.subscription_plan.toUpperCase()} (${school.remaining_days}h)`;
+
+    if (!isAdmin) {
+      return <span className={badgeClass}>{label}</span>;
+    }
+
+    return (
+      <a href="/billing" className={badgeClass}>
+        {label}
+      </a>
+    );
+  };
+
   return (
     <>
-      <header className="bg-white rounded-2xl sm:rounded-3xl p-4 sm:p-6 shadow-xl shadow-slate-200/50 border border-slate-100 flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3 sm:gap-4 transition-colors">
-        {/* Baris Atas Mobile: Branding + Toggle Tema Cepat */}
-        <div className="flex items-center justify-between gap-3">
-          <a href="/" className="min-w-0 flex-1">
-            <div className="flex items-center gap-3 sm:gap-4">
-              <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-2xl overflow-hidden bg-white border border-slate-200 flex items-center justify-center shadow-md shrink-0">
-                <img
-                  src="/logo.jpg"
-                  alt="Logo Scout Team"
-                  className="w-full h-full object-contain"
-                />
-              </div>
-              <div className="min-w-0">
-                <h1 className="text-base sm:text-xl font-black text-slate-900 leading-snug truncate">
-                  {title}
-                </h1>
-                <p className="text-[11px] sm:text-xs text-slate-400 font-medium truncate">
-                  {subtitle}
-                </p>
-              </div>
-            </div>
-          </a>
+      {showPaywallBanner && (
+        <div className="bg-rose-600 text-white rounded-2xl p-3.5 sm:px-5 shadow-lg flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2.5">
+          <div className="text-xs font-semibold">
+            <strong className="font-black">⛔ Akses Sekolah Dibatasi:</strong> Masa aktif paket{' '}
+            <span className="underline">{school?.name}</span> belum aktif atau sudah berakhir.
+            {!isAdmin && ' Hubungi Admin Sekolah Anda untuk aktivasi/perpanjangan.'}
+          </div>
+          {isAdmin && (
+            <a
+              href="/billing"
+              className="bg-white text-rose-700 hover:bg-rose-50 text-xs font-black px-4 py-2 rounded-xl transition shrink-0"
+            >
+              Aktifkan / Bayar Sekarang →
+            </a>
+          )}
+        </div>
+      )}
 
-          {/* Tombol Toggle Tema khusus tampilan Mobile di kanan atas */}
+      <header className="bg-white rounded-2xl sm:rounded-3xl p-4 sm:p-6 shadow-xl shadow-slate-200/50 border border-slate-100 flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3 sm:gap-4 transition-colors">
+        <div className="flex items-center justify-between gap-3">
+          <div className="min-w-0 flex-1 flex items-center gap-3 sm:gap-4">
+            <a
+              href={isSuperadmin ? '/superadmin' : '/'}
+              className="w-10 h-10 sm:w-12 sm:h-12 rounded-2xl overflow-hidden bg-white border border-slate-200 flex items-center justify-center shadow-md shrink-0"
+            >
+              <img
+                src="/logo.jpg"
+                alt="Logo Scout Team"
+                className="w-full h-full object-contain"
+              />
+            </a>
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-2 flex-wrap">
+                <a href={isSuperadmin ? '/superadmin' : '/'} className="min-w-0">
+                  <h1 className="text-base sm:text-xl font-black text-slate-900 leading-snug truncate">
+                    {title}
+                  </h1>
+                </a>
+                {getPlanBadge()}
+              </div>
+              <p className="text-[11px] sm:text-xs text-slate-400 font-medium truncate">
+                {resolvedSubtitle}
+              </p>
+            </div>
+          </div>
+
           <button
             type="button"
             onClick={toggleTheme}
@@ -78,9 +161,7 @@ export default function Header({
           </button>
         </div>
 
-        {/* Actions & User Session Info Badge */}
         <div className="flex items-center gap-2 w-full md:w-auto justify-between md:justify-end">
-          {/* Toggle Button Dark / Light Mode (Desktop) */}
           <button
             type="button"
             onClick={toggleTheme}
@@ -113,25 +194,55 @@ export default function Header({
                 <div className="flex items-center gap-1.5">
                   <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shrink-0"></span>
                   <span className="text-[10px] font-bold tracking-wide uppercase text-indigo-600 truncate">
-                    {currentUser.role} (@{currentUser.username})
+                    {currentUser.role === 'instruktur' ? 'Pembantu Pembina' : currentUser.role} (@{currentUser.username})
                   </span>
                 </div>
               </div>
 
-              <div className="flex items-center gap-1.5 shrink-0">
-                <a
-                  href="/menu"
-                  className="hidden sm:inline-flex bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-bold px-3 py-2 rounded-xl border border-indigo-200 transition items-center gap-1"
-                >
-                  <AppstoreOutlined /> Menu
-                </a>
-                <button
-                  onClick={() => (window.location.href = '/scan')}
-                  className="bg-emerald-500 hover:bg-emerald-600 text-white text-xs font-bold px-3 py-2 rounded-xl transition shadow-sm flex items-center gap-1"
-                >
-                  <span>📷</span>
-                  <span className="hidden xs:inline sm:inline">Scan QR</span>
-                </button>
+              <div className="flex items-center gap-1.5 shrink-0 flex-wrap">
+                {isSuperadmin ? (
+                  <a
+                    href="/superadmin"
+                    className="bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-bold px-3 py-2 rounded-xl border border-indigo-200 transition inline-flex items-center gap-1"
+                  >
+                    <SafetyCertificateOutlined /> Superadmin
+                  </a>
+                ) : (
+                  <>
+                    <a
+                      href="/menu"
+                      className="hidden sm:inline-flex bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-bold px-3 py-2 rounded-xl border border-indigo-200 transition items-center gap-1"
+                    >
+                      <AppstoreOutlined /> Menu
+                    </a>
+                    {isAdmin && (
+                      <a
+                        href="/billing"
+                        title="Langganan & Pembayaran Sekolah"
+                        className="hidden sm:inline-flex bg-amber-50 hover:bg-amber-100 text-amber-700 text-xs font-bold px-2.5 py-2 rounded-xl border border-amber-200 transition items-center gap-1"
+                      >
+                        <CreditCardOutlined />
+                      </a>
+                    )}
+                    <a
+                      href="/pengaturan"
+                      title="Pengaturan Sekolah & Keamanan Akun"
+                      className="inline-flex bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold px-2.5 py-2 rounded-xl border border-slate-200 transition items-center gap-1"
+                    >
+                      <SettingOutlined />
+                    </a>
+                    {school?.subscription_active && (
+                      <button
+                        onClick={() => (window.location.href = '/scan')}
+                        className="bg-emerald-500 hover:bg-emerald-600 text-white text-xs font-bold px-3 py-2 rounded-xl transition shadow-sm flex items-center gap-1"
+                      >
+                        <span>📷</span>
+                        <span className="hidden xs:inline sm:inline">Scan QR</span>
+                      </button>
+                    )}
+                  </>
+                )}
+
                 <button
                   onClick={handleLogout}
                   className="bg-rose-50 hover:bg-rose-100 text-rose-600 text-xs font-bold px-3 py-2 rounded-xl border border-rose-200 transition flex items-center gap-1"
@@ -145,8 +256,7 @@ export default function Header({
         </div>
       </header>
 
-      {/* Navigasi Bawah Khusus Layar HP */}
-      <MobileBottomNav />
+      {!isSuperadmin && <MobileBottomNav />}
     </>
   );
 }

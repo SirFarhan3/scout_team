@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Modal, Button, Select, Input, InputNumber, message } from 'antd';
+import { App, Modal, Button, Select, Input, InputNumber } from 'antd';
 import {
   TrophyFilled,
   ThunderboltFilled,
@@ -41,6 +41,7 @@ export default function MinigameScoreModal({
   students,
   onSuccess,
 }: MinigameScoreModalProps) {
+  const { message } = App.useApp();
   const [targetType, setTargetType] = useState<'team' | 'student'>(defaultTargetType);
   const [actionMode, setActionMode] = useState<'add' | 'deduct'>('add');
   const [selectedTeamId, setSelectedTeamId] = useState<string | undefined>(defaultTeamId);
@@ -356,9 +357,9 @@ export default function MinigameScoreModal({
               min={1}
               max={500}
               step={5}
-              addonBefore={
+              prefix={
                 <span
-                  className={`font-black text-xs ${
+                  className={`font-black text-xs mr-1 ${
                     actionMode === 'add' ? 'text-emerald-600' : 'text-rose-600'
                   }`}
                 >

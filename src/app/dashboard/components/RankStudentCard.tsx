@@ -17,10 +17,18 @@ import {
 import ScoreDetailModal from '@/components/ranking/ScoreDetailModal';
 import MinigameScoreModal from '@/components/ranking/MinigameScoreModal';
 
-export default function RankStudentCard() {
-  const [students, setStudents] = useState<BestStudentResult[]>([]);
-  const [teams, setTeams] = useState<BestTeamResult[]>([]);
-  const [loading, setLoading] = useState<boolean>(true);
+interface RankStudentCardProps {
+  initialStudents?: BestStudentResult[];
+  initialTeams?: BestTeamResult[];
+}
+
+export default function RankStudentCard({
+  initialStudents,
+  initialTeams,
+}: RankStudentCardProps = {}) {
+  const [students, setStudents] = useState<BestStudentResult[]>(initialStudents || []);
+  const [teams, setTeams] = useState<BestTeamResult[]>(initialTeams || []);
+  const [loading, setLoading] = useState<boolean>(!initialStudents);
   const [error, setError] = useState<string | null>(null);
 
   // Modal Detail Siswa
@@ -60,8 +68,10 @@ export default function RankStudentCard() {
   };
 
   useEffect(() => {
-    fetchStudentsRank();
-  }, []);
+    if (!initialStudents) {
+      fetchStudentsRank();
+    }
+  }, [initialStudents]);
 
   const getBadgeStyle = (rank: number) => {
     if (rank === 1) return 'bg-emerald-600 text-white';

@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { Table, Card, Button, Tag, message } from 'antd';
+import { App, Table, Card, Button, Tag } from 'antd';
 import {
   TrophyFilled,
   CrownFilled,
@@ -15,6 +15,7 @@ import {
   FlagOutlined,
 } from '@ant-design/icons';
 import Header from '@/components/Header';
+import PageLoader from '@/components/PageLoader';
 import { authService } from '@/lib/auth';
 import {
   getBestTeams,
@@ -26,6 +27,7 @@ import ScoreDetailModal from '@/components/ranking/ScoreDetailModal';
 import MinigameScoreModal from '@/components/ranking/MinigameScoreModal';
 
 export default function RankingPage() {
+  const { message } = App.useApp();
   const [activeTab, setActiveTab] = useState<'team' | 'student'>('team');
   const [teams, setTeams] = useState<BestTeamResult[]>([]);
   const [students, setStudents] = useState<BestStudentResult[]>([]);
@@ -60,6 +62,10 @@ export default function RankingPage() {
     authService.getCurrentUser().then((user) => {
       if (!user) {
         window.location.href = '/login';
+        return;
+      }
+      if (user.school && !user.school.subscription_active) {
+        window.location.href = '/billing';
         return;
       }
       if (typeof window !== 'undefined') {
@@ -414,6 +420,10 @@ export default function RankingPage() {
       },
     },
   ];
+
+  if (loading) {
+    return <PageLoader text="Memuat Klasemen & Peringkat..." />;
+  }
 
   return (
     <div className="min-h-screen bg-slate-100 text-slate-800 p-4 md:p-8 font-sans">

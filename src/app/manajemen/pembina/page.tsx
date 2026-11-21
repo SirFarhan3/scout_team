@@ -1,15 +1,17 @@
 'use client';
 
 import { useEffect, useState, useMemo } from 'react';
-import { message, Modal, Table, Tag, Space, Button, Segmented } from 'antd';
+import { App, Table, Tag, Space, Button, Segmented } from 'antd';
 import { TableOutlined, AppstoreOutlined, EditOutlined, DeleteOutlined } from '@ant-design/icons';
 import Header from '@/components/Header';
+import PageLoader from '@/components/PageLoader';
 import { authService, UserSessionData } from '@/lib/auth';
 import { pembinaService } from '@/services/pembinaService';
 import { PembinaUser, CreatePembinaInput, UpdatePembinaInput } from '@/types/pembina';
 import PembinaForm from './components/PembinaForm';
 
 export default function PembinaManagementPage() {
+  const { message, modal } = App.useApp();
   const [currentUser, setCurrentUser] = useState<UserSessionData | null>(null);
   const [pembinas, setPembinas] = useState<PembinaUser[]>([]);
   const [loading, setLoading] = useState(true);
@@ -38,6 +40,16 @@ export default function PembinaManagementPage() {
         return;
       }
 
+      if (user.role === 'superadmin') {
+        window.location.href = '/superadmin';
+        return;
+      }
+
+      if (user.school && !user.school.subscription_active) {
+        window.location.href = '/billing';
+        return;
+      }
+
       if (user.role !== 'admin') {
         message.error('Akses Ditolak! Halaman Manajemen Pembina hanya dapat diakses oleh Admin.');
         window.location.href = '/manajemen/siswa';
@@ -57,7 +69,7 @@ export default function PembinaManagementPage() {
   const handleCreatePembina = async (input: CreatePembinaInput) => {
     const newPembina = await pembinaService.createPembina(input);
     setPembinas((prev) => [newPembina, ...prev]);
-    message.success('Berhasil menambahkan akun pembina/instruktur baru!');
+    message.success('Berhasil menambahkan akun pembina/pembantu pembina baru!');
   };
 
   const handleUpdatePembina = async (input: UpdatePembinaInput) => {
@@ -78,7 +90,7 @@ export default function PembinaManagementPage() {
       return;
     }
 
-    Modal.confirm({
+    modal.confirm({
       title: 'Hapus Pembina',
       content: `Apakah Anda yakin ingin menghapus akun ${targetName}?`,
       okText: 'Hapus',
@@ -123,14 +135,7 @@ export default function PembinaManagementPage() {
   };
 
   if (loading) {
-    return (
-      <div className="min-h-screen bg-slate-100 flex items-center justify-center font-sans">
-        <div className="flex items-center gap-3 bg-white px-6 py-4 rounded-3xl shadow-lg border border-slate-100">
-          <span className="animate-spin text-2xl">⚡</span>
-          <span className="text-sm font-bold text-slate-700">Memverifikasi Hak Akses Admin...</span>
-        </div>
-      </div>
-    );
+    return <PageLoader text="Memuat Data Pembina & Pembantu Pembina..." />;
   }
 
   const isAdmin = currentUser?.role === 'admin';
@@ -170,7 +175,7 @@ export default function PembinaManagementPage() {
         return (
           <div className="flex items-center gap-1.5 flex-wrap">
             <Tag color={color} className="uppercase font-bold text-[10px] rounded-md px-2 py-0.5">
-              {role}
+              {role === 'instruktur' ? 'Pembantu Pembina' : role}
             </Tag>
             {isSelf && (
               <Tag color="green" className="font-bold text-[9px] rounded-md px-1.5 py-0.2">
@@ -234,7 +239,7 @@ export default function PembinaManagementPage() {
         
         {/* Header Global */}
         <Header 
-          title="Manajemen Akun Pembina & Instruktur" 
+          title="Manajemen Akun Pembina & Pembantu Pembina" 
           subtitle="Hak Akses Khusus Admin • Gugusdepan" 
         />
 
@@ -243,10 +248,10 @@ export default function PembinaManagementPage() {
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
             <div>
               <h2 className="text-lg font-bold text-slate-900">
-                Daftar Pembina
+                Daftar Pembina ({pembinas.length} / {currentUser?.school?.max_users ?? '-'})
               </h2>
               <p className="text-xs text-slate-400 font-medium">
-                Kelola kredensial dan hak akses pengelola pramuka
+                Akun pengelola terikat eksklusif untuk {currentUser?.school?.name || 'sekolah Anda'}
               </p>
             </div>
 
@@ -265,11 +270,11 @@ export default function PembinaManagementPage() {
                 <button
                   onClick={() => {
                     setEditingPembina(null);
-                    setShowForm(!showForm);
+                    setShowForm(true);
                   }}
                   className="flex-1 sm:flex-initial bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white text-xs font-bold px-5 py-2.5 rounded-2xl shadow-lg shadow-indigo-200 transition flex items-center justify-center gap-2 whitespace-nowrap"
                 >
-                  {showForm || editingPembina ? '❌ Batal' : '➕ Tambah Pembina'}
+                  ➕ Tambah Pembina
                 </button>
               )}
             </div>
@@ -302,15 +307,16 @@ export default function PembinaManagementPage() {
                 <option value="ALL">Semua Role</option>
                 <option value="admin">Admin</option>
                 <option value="pembina">Pembina</option>
-                <option value="instruktur">Instruktur</option>
+                <option value="instruktur">Pembantu Pembina</option>
               </select>
             </div>
           </div>
         </div>
 
         {/* Form Modal (Tambah / Edit) */}
-        {isAdmin && (showForm || editingPembina) && (
+        {isAdmin && (
           <PembinaForm
+            open={showForm || Boolean(editingPembina)}
             initialData={editingPembina}
             onSuccess={() => {
               setShowForm(false);
@@ -374,7 +380,7 @@ export default function PembinaManagementPage() {
                                   : 'bg-amber-100 text-amber-700'
                               }`}
                             >
-                              {pembina.role}
+                              {pembina.role === 'instruktur' ? 'Pembantu Pembina' : pembina.role}
                             </span>
                             {isSelf && (
                               <span className="text-[9px] font-bold bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-md">

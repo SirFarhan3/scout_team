@@ -1,7 +1,7 @@
 'use client';
 
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { ConfigProvider, theme as antdTheme } from 'antd';
+import { App as AntdApp, ConfigProvider, theme as antdTheme } from 'antd';
 
 type ThemeMode = 'light' | 'dark';
 
@@ -110,7 +110,7 @@ export default function ThemeProvider({ children }: { children: React.ReactNode 
                 },
         }}
       >
-        {children}
+        <AntdApp className="min-h-full flex flex-col flex-1">{children}</AntdApp>
       </ConfigProvider>
     </ThemeContext.Provider>
   );

@@ -1,5 +1,8 @@
 import OpenAI from 'openai';
-import { isSameOriginRequest, sanitizePromptField } from '@/lib/serverSecurity';
+import { NextResponse } from 'next/server';
+import { assertSameOriginMutation, sanitizePromptField } from '@/lib/serverSecurity';
+import { checkRateLimit, getClientIp } from '@/lib/rateLimit';
+import { handleApiError, requireAuth } from '@/lib/authServer';
 
 const omniClient = new OpenAI({
   baseURL: process.env.OMNI_BASE_URL || 'http://localhost:20128/v1',
@@ -8,14 +11,27 @@ const omniClient = new OpenAI({
 
 export async function POST(req: Request) {
   try {
-    if (!isSameOriginRequest(req)) {
-      return Response.json({ success: false, error: 'Akses lintas origin ditolak.' }, { status: 403 });
+    assertSameOriginMutation(req);
+    const ctx = await requireAuth({
+      roles: ['admin', 'pembina', 'instruktur'],
+      requireSchool: true,
+      requireActiveSubscription: true,
+      requireAiFeature: true,
+    });
+
+    const ip = getClientIp(req);
+    const limit = checkRateLimit(`ai:chat:${ctx.school!.id}:${ip}`, 20, 10 * 60 * 1000);
+    if (!limit.allowed) {
+      return NextResponse.json(
+        { success: false, error: 'Batas penggunaan AI sementara tercapai. Coba beberapa menit lagi.' },
+        { status: 429 }
+      );
     }
 
-    const body = await req.json();
+    const body = await req.json().catch(() => null);
     const message = sanitizePromptField(body?.message, 2000);
     if (!message) {
-      return Response.json({ success: false, error: 'Pesan tidak boleh kosong.' }, { status: 400 });
+      return NextResponse.json({ success: false, error: 'Pesan tidak boleh kosong.' }, { status: 400 });
     }
 
     const completion = await omniClient.chat.completions.create({
@@ -24,13 +40,13 @@ export async function POST(req: Request) {
     });
 
     const reply = completion.choices[0]?.message?.content || '';
-
-    return Response.json({ success: true, reply });
+    return NextResponse.json({ success: true, reply });
   } catch (error: any) {
-    // Log detail error hanya di server, jangan bocorkan internal infrastructure detail ke client
+    if (error?.status === 401 || error?.status === 402 || error?.status === 403 || error?.status === 400) {
+      return handleApiError(error);
+    }
     console.error('OmniRoute Error:', error?.message || error);
-
-    return Response.json(
+    return NextResponse.json(
       {
         success: false,
         error: 'Layanan AI sedang tidak tersedia. Silakan coba beberapa saat lagi.',

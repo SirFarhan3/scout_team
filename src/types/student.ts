@@ -1,7 +1,7 @@
 export interface Student {
   id: string;
   full_name: string;
-  group_name: string;
+  group_name?: string;
   class_name?: string;
   nta?: string;
   qr_code_id: string;
@@ -9,4 +9,6 @@ export interface Student {
 }
 
 // Tipe khusus untuk payload insert/form
-export type CreateStudentInput = Omit<Student, 'id' | 'qr_code_id' | 'created_at'>;
+export type CreateStudentInput = Omit<Student, 'id' | 'qr_code_id' | 'created_at'> & {
+  qr_code_id?: string;
+};

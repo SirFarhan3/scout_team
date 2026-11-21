@@ -47,12 +47,26 @@ export default function QuickActions({ isAdmin }: QuickActionsProps) {
         </button>
 
         {isAdmin && (
-          <button
-            onClick={() => (window.location.href = '/manajemen/pembina')}
-            className="w-full bg-slate-50 hover:bg-slate-100 text-slate-700 text-xs font-bold py-3 px-4 rounded-2xl transition border border-slate-200 flex items-center justify-between"
-          >
-            <span>🛡️ Manajemen Pembina</span>
-          </button>
+          <>
+            <button
+              onClick={() => (window.location.href = '/manajemen/pembina')}
+              className="w-full bg-slate-50 hover:bg-slate-100 text-slate-700 text-xs font-bold py-3 px-4 rounded-2xl transition border border-slate-200 flex items-center justify-between"
+            >
+              <span>🛡️ Manajemen Pembina</span>
+            </button>
+            <button
+              onClick={() => (window.location.href = '/billing')}
+              className="w-full bg-amber-50 hover:bg-amber-100 text-amber-800 text-xs font-bold py-3 px-4 rounded-2xl transition border border-amber-200 flex items-center justify-between"
+            >
+              <span>💳 Langganan & Lisensi Sekolah</span>
+            </button>
+            <button
+              onClick={() => (window.location.href = '/pengaturan')}
+              className="w-full bg-slate-50 hover:bg-slate-100 text-slate-700 text-xs font-bold py-3 px-4 rounded-2xl transition border border-slate-200 flex items-center justify-between"
+            >
+              <span>🏫 Pengaturan Sekolah & Akun</span>
+            </button>
+          </>
         )}
 
         <button

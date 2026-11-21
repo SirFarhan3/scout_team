@@ -1,9 +1,10 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Button, Input, Modal, message } from 'antd';
+import { App, Button, Input } from 'antd';
 import { PlusOutlined, SearchOutlined } from '@ant-design/icons';
 import Header from '@/components/Header';
+import PageLoader from '@/components/PageLoader';
 import { authService } from '@/lib/auth';
 import dayjs from 'dayjs';
 import { getAllLogs, upsertLog, deleteLog, createLog } from '@/services/logService';
@@ -16,8 +17,9 @@ import LogFormModal from './components/LogFormModal';
 import LogViewModal from './components/LogViewModal';
 
 export default function LogHarianPage() {
+  const { message, modal } = App.useApp();
   const [logs, setLogs] = useState<any[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [searchText, setSearchText] = useState('');
 
   // Modal Form State
@@ -42,6 +44,10 @@ export default function LogHarianPage() {
     authService.getCurrentUser().then((user) => {
       if (!user) {
         window.location.href = '/login';
+        return;
+      }
+      if (user.school && !user.school.subscription_active) {
+        window.location.href = '/billing';
         return;
       }
       fetchLogs();
@@ -123,7 +129,7 @@ export default function LogHarianPage() {
           </tr>
         `).join('');
 
-    const WindowPrt = window.open('', '_blank', 'left=0,top=0,width=900,height=650,noopener,noreferrer');
+    const WindowPrt = window.open('', '_blank', 'left=0,top=0,width=900,height=650');
     if (WindowPrt) {
       WindowPrt.document.open();
       WindowPrt.document.write(`
@@ -202,7 +208,7 @@ export default function LogHarianPage() {
   };
 
   const handleDelete = async (id: string) => {
-    Modal.confirm({
+    modal.confirm({
       title: 'Hapus Log Harian',
       content: 'Apakah lu yakin ingin menghapus arsip log tanggal ini?',
       okText: 'Ya, Hapus',
@@ -223,6 +229,10 @@ export default function LogHarianPage() {
   const filteredLogs = logs.filter(item => 
     item.tanggal.toLowerCase().includes(searchText.toLowerCase())
   );
+
+  if (loading) {
+    return <PageLoader text="Memuat Log Kegiatan Harian..." />;
+  }
 
   return (
     <div className="min-h-screen bg-slate-100 text-slate-800 p-4 md:p-8 font-sans">

@@ -1,15 +1,30 @@
 import { NextResponse } from 'next/server';
 import { generateWithAI } from '@/lib/aiService';
 import { normalizeAiMaterial } from '@/lib/normalizeMaterial';
-import { isSameOriginRequest, sanitizePromptField } from '@/lib/serverSecurity';
+import { assertSameOriginMutation, sanitizePromptField } from '@/lib/serverSecurity';
+import { checkRateLimit, getClientIp } from '@/lib/rateLimit';
+import { handleApiError, requireAuth } from '@/lib/authServer';
 
 export async function POST(request: Request) {
   try {
-    if (!isSameOriginRequest(request)) {
-      return NextResponse.json({ success: false, error: 'Akses lintas origin ditolak.' }, { status: 403 });
+    assertSameOriginMutation(request);
+    const ctx = await requireAuth({
+      roles: ['admin', 'pembina'],
+      requireSchool: true,
+      requireActiveSubscription: true,
+      requireAiFeature: true,
+    });
+
+    const ip = getClientIp(request);
+    const limit = checkRateLimit(`ai:material:${ctx.school!.id}:${ip}`, 15, 10 * 60 * 1000);
+    if (!limit.allowed) {
+      return NextResponse.json(
+        { success: false, error: 'Batas generate AI sementara tercapai. Coba beberapa menit lagi.' },
+        { status: 429 }
+      );
     }
 
-    const body = await request.json();
+    const body = await request.json().catch(() => null);
     const topic = sanitizePromptField(body?.topic, 200);
     const level = sanitizePromptField(body?.level, 80) || 'Penggalang';
     const duration = sanitizePromptField(body?.duration, 60) || '2 Jam';
@@ -57,6 +72,9 @@ export async function POST(request: Request) {
       data: parsedData,
     });
   } catch (error: any) {
+    if (error?.status === 401 || error?.status === 402 || error?.status === 403 || error?.status === 400) {
+      return handleApiError(error);
+    }
     console.error('Error AI Generation:', error);
     return NextResponse.json(
       { success: false, error: 'Gagal men-generate materi dengan AI. Silakan coba lagi.' },

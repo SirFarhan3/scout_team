@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { Modal, Tag, Button, Popconfirm, message } from 'antd';
+import { App, Modal, Tag, Button, Popconfirm } from 'antd';
 import {
   TrophyFilled,
   StarFilled,
@@ -39,6 +39,7 @@ export default function ScoreDetailModal({
   onRefresh,
   onOpenAddScore,
 }: ScoreDetailModalProps) {
+  const { message } = App.useApp();
   const handleDeleteTeamScore = async (scoreId: string) => {
     try {
       await deleteTeamScore(scoreId);

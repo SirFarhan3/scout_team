@@ -2,9 +2,16 @@
 
 import { useEffect, useState } from 'react';
 import Header from '@/components/Header';
+import PageLoader from '@/components/PageLoader';
 import { authService, UserSessionData } from '@/lib/auth';
 import { dashboardService } from '@/services/dashboardService';
 import { attendanceService } from '@/services/attendanceService';
+import {
+  getBestTeams,
+  getBestStudents,
+  BestTeamResult,
+  BestStudentResult,
+} from '@/services/scoreService';
 import { AttendanceRecord } from '@/types/attendance';
 import StatCards from '@/app/dashboard/components/StatCards';
 import QuickActions from '@/app/dashboard/components/QuickActions';
@@ -20,6 +27,8 @@ export default function Home() {
     belumAbsenToday: 0,
   });
   const [recentScans, setRecentScans] = useState<AttendanceRecord[]>([]);
+  const [bestTeams, setBestTeams] = useState<BestTeamResult[]>([]);
+  const [bestStudents, setBestStudents] = useState<BestStudentResult[]>([]);
 
   useEffect(() => {
     initDashboard();
@@ -33,15 +42,27 @@ export default function Home() {
         window.location.href = '/login';
         return;
       }
+      if (user.role === 'superadmin') {
+        window.location.href = '/superadmin';
+        return;
+      }
+      if (user.school && !user.school.subscription_active) {
+        window.location.href = '/billing';
+        return;
+      }
       setCurrentUser(user);
 
-      const [dashboardStats, attendanceHistory] = await Promise.all([
+      const [dashboardStats, attendanceHistory, teamsData, studentsData] = await Promise.all([
         dashboardService.getDashboardStats(),
         attendanceService.getUniqueRecentAttendance(5),
+        getBestTeams().catch(() => []),
+        getBestStudents().catch(() => []),
       ]);
 
       setStats(dashboardStats);
       setRecentScans(attendanceHistory);
+      setBestTeams(teamsData);
+      setBestStudents(studentsData);
     } catch (err) {
       console.error('Failed to load dashboard:', err);
     } finally {
@@ -50,14 +71,7 @@ export default function Home() {
   };
 
   if (loading) {
-    return (
-      <div className="min-h-screen bg-slate-100 flex items-center justify-center font-sans">
-        <div className="flex items-center gap-3 bg-white px-6 py-4 rounded-3xl shadow-lg border border-slate-100">
-          <span className="animate-spin text-2xl">⚡</span>
-          <span className="text-sm font-bold text-slate-700">Memuat Dashboard...</span>
-        </div>
-      </div>
-    );
+    return <PageLoader text="Memuat Dashboard..." />;
   }
 
   return (
@@ -86,8 +100,8 @@ export default function Home() {
 
           {/* Leaderboard Regu Terbaik & Siswa Terbaik */}
           <div className="md:col-span-2 space-y-6">
-            <RankReguCard />
-            <RankStudentCard />
+            <RankReguCard initialTeams={bestTeams} initialStudents={bestStudents} />
+            <RankStudentCard initialStudents={bestStudents} initialTeams={bestTeams} />
           </div>
         </div>
 
