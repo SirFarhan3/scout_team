@@ -75,7 +75,7 @@ export function toSchoolDTO(row: Record<string, unknown>): SchoolDTO {
     subscription_active: active,
     remaining_days: getRemainingDays(expiresAt),
     max_students: Number(row.max_students) || 40,
-    max_users: Number(row.max_users) || 3,
+    max_users: Math.max(5, Number(row.max_users) || 5),
     ai_features_enabled: toBool(row.ai_features_enabled),
     telegram_chat_id: row.telegram_chat_id ? Number(row.telegram_chat_id) : null,
     created_at: row.created_at ? String(row.created_at) : undefined,

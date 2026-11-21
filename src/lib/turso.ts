@@ -58,6 +58,11 @@ export async function getDb(): Promise<Client> {
       } catch {
         // Index sudah ada atau masih ada data duplikat lama
       }
+      try {
+        await client.execute('UPDATE schools SET max_users = 5 WHERE max_users < 5');
+      } catch {
+        // Abaikan bila gagal
+      }
     })();
   }
   await fkPragmaReady;

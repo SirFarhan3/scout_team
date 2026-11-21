@@ -26,7 +26,7 @@ CREATE TABLE IF NOT EXISTS schools (
   subscription_started_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
   subscription_expires_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '+14 days')),
   max_students INTEGER NOT NULL DEFAULT 40 CHECK (max_students > 0),
-  max_users INTEGER NOT NULL DEFAULT 3 CHECK (max_users > 0),
+  max_users INTEGER NOT NULL DEFAULT 5 CHECK (max_users > 0),
   ai_features_enabled INTEGER NOT NULL DEFAULT 1 CHECK (ai_features_enabled IN (0, 1)),
   telegram_chat_id INTEGER UNIQUE,
   deleted_at TEXT,

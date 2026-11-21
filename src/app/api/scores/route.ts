@@ -5,14 +5,14 @@ import { assertSameOriginMutation } from '@/lib/serverSecurity';
 import { assertSafeText, assertValidUuid } from '@/lib/sanitize';
 import { ValidationError, handleApiError, requireAuth } from '@/lib/authServer';
 
+const WIB_OFFSET_MS = 7 * 60 * 60 * 1000;
+
 function toLocalDateKey(isoString?: string): string {
   if (!isoString) return '';
   const d = new Date(isoString);
   if (Number.isNaN(d.getTime())) return '';
-  const year = d.getFullYear();
-  const month = String(d.getMonth() + 1).padStart(2, '0');
-  const day = String(d.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
+  const wib = new Date(d.getTime() + WIB_OFFSET_MS);
+  return wib.toISOString().slice(0, 10);
 }
 
 export async function GET(request: Request) {

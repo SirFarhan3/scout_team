@@ -2,6 +2,16 @@ import { NextResponse } from 'next/server';
 import { dbAll, dbOne } from '@/lib/turso';
 import { handleApiError, requireAuth } from '@/lib/authServer';
 
+const WIB_OFFSET_MS = 7 * 60 * 60 * 1000;
+
+function getTodayWibRange() {
+  const nowWib = new Date(Date.now() + WIB_OFFSET_MS);
+  const dateStr = nowWib.toISOString().slice(0, 10);
+  const startOfDay = new Date(`${dateStr}T00:00:00.000+07:00`).toISOString();
+  const endOfDay = new Date(`${dateStr}T23:59:59.999+07:00`).toISOString();
+  return { startOfDay, endOfDay };
+}
+
 export async function GET() {
   try {
     const ctx = await requireAuth({
@@ -15,21 +25,23 @@ export async function GET() {
       [schoolId]
     );
 
-    const todayStart = new Date();
-    todayStart.setHours(0, 0, 0, 0);
+    const { startOfDay, endOfDay } = getTodayWibRange();
 
+    // Ambil data presensi hari ini secara DISTINCT per student_id (ambil status terbaru hari ini)
     const todayRecords = await dbAll<{ student_id: string; status: string; created_at: string }>(
-      `SELECT student_id, status, created_at
-       FROM attendance
-       WHERE school_id = ? AND created_at >= ?
-       ORDER BY created_at DESC`,
-      [schoolId, todayStart.toISOString()]
+      `SELECT a.student_id, a.status, a.created_at
+       FROM attendance a
+       INNER JOIN students s ON s.id = a.student_id AND s.school_id = a.school_id
+       WHERE a.school_id = ? AND a.created_at >= ? AND a.created_at <= ?
+       ORDER BY a.created_at DESC`,
+      [schoolId, startOfDay, endOfDay]
     );
 
     const latestStatusByStudent = new Map<string, string>();
     for (const record of todayRecords) {
-      if (!latestStatusByStudent.has(record.student_id)) {
-        latestStatusByStudent.set(record.student_id, record.status);
+      const sid = String(record.student_id);
+      if (!latestStatusByStudent.has(sid)) {
+        latestStatusByStudent.set(sid, String(record.status));
       }
     }
 

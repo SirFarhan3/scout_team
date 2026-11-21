@@ -25,11 +25,11 @@ export const PLAN_CATALOG: Record<SubscriptionPlanCode, PlanDefinition> = {
     monthlyPriceIdr: 0,
     yearlyPriceIdr: 0,
     maxStudents: 40,
-    maxUsers: 3,
+    maxUsers: 5,
     aiFeaturesEnabled: true,
     features: [
       'Maksimal 40 anggota pramuka',
-      'Maksimal 3 akun admin/pembina',
+      'Maksimal 5 akun admin/pembina',
       'Presensi QR & laporan nilai dasar',
       'Akses uji coba generator AI',
     ],

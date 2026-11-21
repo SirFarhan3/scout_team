@@ -7,16 +7,14 @@ import { assertSafeText, assertValidUuid, extractQrCodeId, isValidUuid } from '@
 import { ValidationError, handleApiError, requireAuth } from '@/lib/authServer';
 
 const VALID_STATUSES = ['Hadir', 'Izin', 'Sakit', 'Tidak Hadir', 'Tanpa Keterangan'] as const;
+const WIB_OFFSET_MS = 7 * 60 * 60 * 1000;
 
 function getTodayIsoRange() {
-  const now = new Date();
-  const year = now.getFullYear();
-  const month = String(now.getMonth() + 1).padStart(2, '0');
-  const day = String(now.getDate()).padStart(2, '0');
-  const dateStr = `${year}-${month}-${day}`;
+  const nowWib = new Date(Date.now() + WIB_OFFSET_MS);
+  const dateStr = nowWib.toISOString().slice(0, 10);
 
-  const startOfDay = new Date(`${dateStr}T00:00:00`).toISOString();
-  const endOfDay = new Date(`${dateStr}T23:59:59.999`).toISOString();
+  const startOfDay = new Date(`${dateStr}T00:00:00.000+07:00`).toISOString();
+  const endOfDay = new Date(`${dateStr}T23:59:59.999+07:00`).toISOString();
   return { startOfDay, endOfDay };
 }
 
@@ -63,10 +61,8 @@ function toLocalDateKey(isoString?: string): string {
   if (!isoString) return '';
   const d = new Date(isoString);
   if (Number.isNaN(d.getTime())) return '';
-  const year = d.getFullYear();
-  const month = String(d.getMonth() + 1).padStart(2, '0');
-  const day = String(d.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
+  const wib = new Date(d.getTime() + WIB_OFFSET_MS);
+  return wib.toISOString().slice(0, 10);
 }
 
 export async function GET(request: Request) {
@@ -93,11 +89,20 @@ export async function GET(request: Request) {
          WHERE a.school_id = ?
          ORDER BY a.created_at DESC
          LIMIT ?`,
-        [schoolId, limit]
+        [schoolId, limit * 3]
       );
+      // Distinct per siswa pada hari yang sama
+      const distinctPerDayMap = new Map<string, ReturnType<typeof formatAttendanceRow>>();
+      for (const item of rows) {
+        const formatted = formatAttendanceRow(item);
+        const dayKey = `${formatted.student_id}:${toLocalDateKey(formatted.created_at)}`;
+        if (!distinctPerDayMap.has(dayKey)) {
+          distinctPerDayMap.set(dayKey, formatted);
+        }
+      }
       return NextResponse.json({
         success: true,
-        records: rows.map(formatAttendanceRow),
+        records: Array.from(distinctPerDayMap.values()).slice(0, limit),
       });
     }
 
@@ -130,13 +135,25 @@ export async function GET(request: Request) {
 
     if (mode === 'today') {
       const { startOfDay, endOfDay } = getTodayIsoRange();
-      const rows = await dbAll<Record<string, unknown>>(
+      const rows = await dbAll<{ student_id: string; status: string; created_at: string }>(
         `SELECT student_id, status, created_at
          FROM attendance
-         WHERE school_id = ? AND created_at >= ? AND created_at <= ?`,
+         WHERE school_id = ? AND created_at >= ? AND created_at <= ?
+         ORDER BY created_at DESC`,
         [schoolId, startOfDay, endOfDay]
       );
-      return NextResponse.json({ success: true, records: rows });
+      // Distinct per student_id untuk hari tersebut
+      const distinctTodayMap = new Map<string, { student_id: string; status: string; created_at: string }>();
+      for (const row of rows) {
+        const sid = String(row.student_id);
+        if (!distinctTodayMap.has(sid)) {
+          distinctTodayMap.set(sid, row);
+        }
+      }
+      return NextResponse.json({
+        success: true,
+        records: Array.from(distinctTodayMap.values()),
+      });
     }
 
     if (mode === 'report') {
@@ -371,34 +388,31 @@ export async function POST(request: Request) {
 
       const studentId = String(student.id);
       const { startOfDay, endOfDay } = getTodayIsoRange();
-      const existing = await dbOne<{ id: string; status: string }>(
+      const existingRows = await dbAll<{ id: string; status: string }>(
         `SELECT id, status
          FROM attendance
          WHERE school_id = ? AND student_id = ? AND created_at >= ? AND created_at <= ?
-         ORDER BY created_at DESC
-         LIMIT 1`,
+         ORDER BY created_at ASC`,
         [schoolId, studentId, startOfDay, endOfDay]
       );
 
-      if (existing) {
-        const existingRecord = await fetchJoinedAttendanceById(schoolId, String(existing.id));
-        if (existing.status === 'Hadir' && existingRecord) {
+      if (existingRows.length > 0) {
+        const primary = existingRows[0];
+        // Jika sempat ada duplikat di hari yang sama, bersihkan sisanya agar tetap 1 baris per siswa per hari
+        if (existingRows.length > 1) {
+          const duplicateIds = existingRows.slice(1).map((r) => String(r.id));
+          const dupPlaceholders = duplicateIds.map(() => '?').join(', ');
+          await dbExec(
+            `DELETE FROM attendance WHERE school_id = ? AND id IN (${dupPlaceholders})`,
+            [schoolId, ...duplicateIds]
+          );
+        }
+
+        const existingRecord = await fetchJoinedAttendanceById(schoolId, String(primary.id));
+        if (existingRecord) {
           return NextResponse.json({
             success: true,
             record: { ...existingRecord, alreadyRecorded: true },
-          });
-        }
-
-        await dbExec(
-          `UPDATE attendance SET status = 'Hadir', recorded_by = ? WHERE id = ? AND school_id = ?`,
-          [recordedBy, String(existing.id), schoolId]
-        );
-
-        const updatedRecord = await fetchJoinedAttendanceById(schoolId, String(existing.id));
-        if (updatedRecord) {
-          return NextResponse.json({
-            success: true,
-            record: { ...updatedRecord, alreadyRecorded: false },
           });
         }
       }
@@ -434,6 +448,40 @@ export async function POST(request: Request) {
         throw new ValidationError('Siswa tidak ditemukan pada sekolah Anda.');
       }
 
+      const { startOfDay, endOfDay } = getTodayIsoRange();
+      const existingRows = await dbAll<{ id: string; status: string }>(
+        `SELECT id, status
+         FROM attendance
+         WHERE school_id = ? AND student_id = ? AND created_at >= ? AND created_at <= ?
+         ORDER BY created_at ASC`,
+        [schoolId, studentId, startOfDay, endOfDay]
+      );
+
+      if (existingRows.length > 0) {
+        const primary = existingRows[0];
+        if (existingRows.length > 1) {
+          const duplicateIds = existingRows.slice(1).map((r) => String(r.id));
+          const dupPlaceholders = duplicateIds.map(() => '?').join(', ');
+          await dbExec(
+            `DELETE FROM attendance WHERE school_id = ? AND id IN (${dupPlaceholders})`,
+            [schoolId, ...duplicateIds]
+          );
+        }
+
+        if (primary.status !== status) {
+          await dbExec(
+            `UPDATE attendance SET status = ?, recorded_by = ? WHERE id = ? AND school_id = ?`,
+            [status, recordedBy, String(primary.id), schoolId]
+          );
+        }
+
+        const existingRecord = await fetchJoinedAttendanceById(schoolId, String(primary.id));
+        return NextResponse.json({
+          success: true,
+          record: existingRecord ? { ...existingRecord, alreadyRecorded: primary.status === status } : null,
+        });
+      }
+
       const newAttendanceId = crypto.randomUUID();
       await dbExec(
         `INSERT INTO attendance (id, school_id, student_id, recorded_by, status, created_at)
@@ -451,7 +499,8 @@ export async function POST(request: Request) {
         throw new ValidationError('Jumlah data presensi massal harus antara 1 sampai 500 siswa.');
       }
 
-      const sanitized: Array<{ student_id: string; status: string }> = records.map((rawRec: unknown) => {
+      const sanitizedMap = new Map<string, { student_id: string; status: string }>();
+      for (const rawRec of records) {
         const rec =
           rawRec && typeof rawRec === 'object' ? (rawRec as Record<string, unknown>) : {};
         const sid = assertValidUuid(rec.student_id, 'ID Siswa');
@@ -459,10 +508,11 @@ export async function POST(request: Request) {
         if (!VALID_STATUSES.includes(st as (typeof VALID_STATUSES)[number])) {
           throw new ValidationError('Status presensi massal tidak valid.');
         }
-        return { student_id: sid, status: st };
-      });
+        sanitizedMap.set(sid, { student_id: sid, status: st });
+      }
+      const sanitized = Array.from(sanitizedMap.values());
 
-      const studentIds = Array.from(new Set(sanitized.map((r) => r.student_id)));
+      const studentIds = sanitized.map((r) => r.student_id);
       const placeholders = studentIds.map(() => '?').join(', ');
 
       const ownedStudents = await dbAll<{ id: string }>(
@@ -475,31 +525,46 @@ export async function POST(request: Request) {
       }
 
       const { startOfDay, endOfDay } = getTodayIsoRange();
-      const todayExisting = await dbAll<{ id: string; student_id: string }>(
-        `SELECT id, student_id
+      const todayExisting = await dbAll<{ id: string; student_id: string; status: string }>(
+        `SELECT id, student_id, status
          FROM attendance
-         WHERE school_id = ? AND student_id IN (${placeholders}) AND created_at >= ? AND created_at <= ?`,
+         WHERE school_id = ? AND student_id IN (${placeholders}) AND created_at >= ? AND created_at <= ?
+         ORDER BY created_at ASC`,
         [schoolId, ...studentIds, startOfDay, endOfDay]
       );
 
-      const existingMap = new Map<string, string>();
+      const existingMap = new Map<string, { id: string; status: string }>();
+      const duplicateIdsToDelete: string[] = [];
       for (const row of todayExisting) {
         const sid = String(row.student_id);
         if (!existingMap.has(sid)) {
-          existingMap.set(sid, String(row.id));
+          existingMap.set(sid, { id: String(row.id), status: String(row.status) });
+        } else {
+          duplicateIdsToDelete.push(String(row.id));
         }
       }
 
       const statements: InStatement[] = [];
       const nowIso = new Date().toISOString();
 
+      if (duplicateIdsToDelete.length > 0) {
+        const dupPlaceholders = duplicateIdsToDelete.map(() => '?').join(', ');
+        statements.push({
+          sql: `DELETE FROM attendance WHERE school_id = ? AND id IN (${dupPlaceholders})`,
+          args: [schoolId, ...duplicateIdsToDelete],
+        });
+      }
+
       for (const item of sanitized) {
-        const existingId = existingMap.get(item.student_id);
-        if (existingId) {
-          statements.push({
-            sql: `UPDATE attendance SET status = ?, recorded_by = ? WHERE id = ? AND school_id = ?`,
-            args: [item.status, recordedBy, existingId, schoolId],
-          });
+        const existing = existingMap.get(item.student_id);
+        if (existing) {
+          // Data sudah ada di hari tersebut: jangan di-insert lagi (hanya update bila status berubah)
+          if (existing.status !== item.status) {
+            statements.push({
+              sql: `UPDATE attendance SET status = ?, recorded_by = ? WHERE id = ? AND school_id = ?`,
+              args: [item.status, recordedBy, existing.id, schoolId],
+            });
+          }
         } else {
           statements.push({
             sql: `INSERT INTO attendance (id, school_id, student_id, recorded_by, status, created_at)

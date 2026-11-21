@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useCallback, useMemo } from 'react';
+import { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import { App } from 'antd';
 import dynamic from 'next/dynamic';
 import Header from '@/components/Header';
@@ -23,6 +23,7 @@ export default function ScanPage() {
   const [lastScannedResult, setLastScannedResult] = useState<AttendanceRecord | null>(null);
   const [scanError, setScanError] = useState<string | null>(null);
   const [processing, setProcessing] = useState(false);
+  const processingRef = useRef(false);
 
   // State Modal & Absen Massal
   const [showManualModal, setShowManualModal] = useState(false);
@@ -70,9 +71,10 @@ export default function ScanPage() {
 
   const handleScanSuccess = useCallback(
     async (decodedText: string) => {
-      if (processing || !currentUser) return;
+      if (processingRef.current || processing || !currentUser) return;
 
       try {
+        processingRef.current = true;
         setProcessing(true);
         setScanError(null);
 
@@ -105,7 +107,10 @@ export default function ScanPage() {
       } catch (err: any) {
         setScanError(err?.message || 'Gagal memproses QR Code');
       } finally {
-        setTimeout(() => setProcessing(false), 2000);
+        setTimeout(() => {
+          processingRef.current = false;
+          setProcessing(false);
+        }, 2000);
       }
     },
     [processing, currentUser]
