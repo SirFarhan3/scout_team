@@ -50,7 +50,7 @@ export default function MenuDirectoryPage() {
 
   const menuList: MenuItem[] = [
     {
-      title: 'Translasi Sandi (Project Scout Chiper)',
+      title: 'Translasi Sandi',
       description: 'Terjemahkan kalimat ke Sandi Morse (+ Peluit & Rumput), Sandi AN, Sandi AZ, Sandi Angka, Koordinat Merah Putih, dan sebaliknya.',
       path: '/sandi',
       icon: <BookOutlined className="text-xl text-indigo-600" />,

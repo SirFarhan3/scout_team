@@ -1,7 +1,8 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { App } from 'antd';
+import { App, Button, Dropdown, Modal } from 'antd';
+import type { MenuProps } from 'antd';
 import {
   SunOutlined,
   MoonOutlined,
@@ -9,10 +10,14 @@ import {
   CreditCardOutlined,
   SettingOutlined,
   SafetyCertificateOutlined,
+  UserOutlined,
+  LogoutOutlined,
+  KeyOutlined,
 } from '@ant-design/icons';
 import { authService, UserSessionData } from '@/lib/auth';
 import { useThemeMode } from '@/components/ThemeProvider';
 import MobileBottomNav from '@/components/MobileBottomNav';
+import PasswordInput from '@/components/PasswordInput';
 
 interface HeaderProps {
   title?: string;
@@ -28,6 +33,11 @@ export default function Header({
   const [currentUser, setCurrentUser] = useState<UserSessionData | null>(() =>
     authService.getCachedUser()
   );
+  const [showPasswordModal, setShowPasswordModal] = useState(false);
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [savingPassword, setSavingPassword] = useState(false);
 
   useEffect(() => {
     const cached = authService.getCachedUser();
@@ -65,6 +75,53 @@ export default function Header({
   const isSuperadmin = currentUser?.role === 'superadmin';
   const isAdmin = currentUser?.role === 'admin';
   const showPaywallBanner = Boolean(school && !school.subscription_active);
+
+  const roleLabel =
+    currentUser?.role === 'instruktur' ? 'Pembantu Pembina' : currentUser?.role || '';
+
+  const profileMenuItems: MenuProps['items'] = [
+    ...(!isSuperadmin
+      ? [
+          { key: 'profil', icon: <UserOutlined />, label: 'Profil Saya' },
+          { key: 'pengaturan', icon: <SettingOutlined />, label: 'Pengaturan' },
+        ]
+      : []),
+    ...(isAdmin
+      ? [{ key: 'billing', icon: <CreditCardOutlined />, label: 'Billing & Langganan' }]
+      : []),
+    { key: 'ganti-password', icon: <KeyOutlined />, label: 'Ganti Password' },
+    { type: 'divider' as const },
+    { key: 'logout', icon: <LogoutOutlined />, label: 'Logout', danger: true },
+  ];
+
+  const handleProfileMenuClick: MenuProps['onClick'] = ({ key }) => {
+    if (key === 'profil') window.location.href = '/pengaturan#profil';
+    else if (key === 'pengaturan') window.location.href = '/pengaturan';
+    else if (key === 'billing') window.location.href = '/billing';
+    else if (key === 'ganti-password') setShowPasswordModal(true);
+    else if (key === 'logout') handleLogout();
+  };
+
+  const handleChangePassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (newPassword !== confirmPassword) {
+      message.error('Konfirmasi password baru tidak cocok.');
+      return;
+    }
+    try {
+      setSavingPassword(true);
+      const msg = await authService.changePassword(currentPassword, newPassword);
+      message.success(msg);
+      setCurrentPassword('');
+      setNewPassword('');
+      setConfirmPassword('');
+      setShowPasswordModal(false);
+    } catch (err: unknown) {
+      message.error(err instanceof Error ? err.message : 'Gagal mengganti password.');
+    } finally {
+      setSavingPassword(false);
+    }
+  };
 
   const getPlanBadge = () => {
     if (!school) return null;
@@ -186,20 +243,8 @@ export default function Header({
           </button>
 
           {currentUser && (
-            <div className="flex flex-wrap items-center gap-2.5 sm:gap-3 w-full lg:w-auto justify-between lg:justify-end bg-slate-50 px-3.5 py-2 rounded-2xl border border-slate-200 shrink-0">
-              <div className="min-w-[110px] max-w-[180px] pr-1">
-                <p className="text-xs font-bold text-slate-800 truncate">
-                  {currentUser.full_name}
-                </p>
-                <div className="flex items-center gap-1.5">
-                  <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shrink-0"></span>
-                  <span className="text-[10px] font-bold tracking-wide uppercase text-indigo-600 truncate">
-                    {currentUser.role === 'instruktur' ? 'Pembantu Pembina' : currentUser.role} (@{currentUser.username})
-                  </span>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-1.5 shrink-0 flex-wrap">
+            <div className="flex items-center gap-2 w-full lg:w-auto justify-between lg:justify-end shrink-0">
+              <div className="flex items-center gap-1.5 flex-wrap">
                 {isSuperadmin ? (
                   <a
                     href="/superadmin"
@@ -217,34 +262,10 @@ export default function Header({
                       <AppstoreOutlined /> Portal
                     </a>
                     <a
-                      href="/sandi"
-                      title="Project Scout Chiper (Translasi Sandi Pramuka)"
-                      className="hidden sm:inline-flex bg-emerald-50 hover:bg-emerald-100 text-emerald-700 text-xs font-bold px-3 py-2 rounded-xl border border-emerald-200 transition items-center gap-1"
-                    >
-                      <span>🔐</span>
-                      <span>Sandi</span>
-                    </a>
-                    <a
                       href="/menu"
                       className="hidden sm:inline-flex bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold px-3 py-2 rounded-xl border border-slate-200 transition items-center gap-1"
                     >
                       Menu
-                    </a>
-                    {isAdmin && (
-                      <a
-                        href="/billing"
-                        title="Langganan & Pembayaran Sekolah"
-                        className="hidden sm:inline-flex bg-amber-50 hover:bg-amber-100 text-amber-700 text-xs font-bold px-2.5 py-2 rounded-xl border border-amber-200 transition items-center gap-1"
-                      >
-                        <CreditCardOutlined />
-                      </a>
-                    )}
-                    <a
-                      href="/pengaturan"
-                      title="Pengaturan Sekolah & Keamanan Akun"
-                      className="inline-flex bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold px-2.5 py-2 rounded-xl border border-slate-200 transition items-center gap-1"
-                    >
-                      <SettingOutlined />
                     </a>
                     {school?.subscription_active && (
                       <button
@@ -257,21 +278,116 @@ export default function Header({
                     )}
                   </>
                 )}
-
-                <button
-                  onClick={handleLogout}
-                  className="bg-rose-50 hover:bg-rose-100 text-rose-600 text-xs font-bold px-3 py-2 rounded-xl border border-rose-200 transition flex items-center gap-1"
-                >
-                  <span>Logout</span>
-                  <span className="hidden sm:inline">🚪</span>
-                </button>
               </div>
+
+              {/* Pop Up Profil */}
+              <Dropdown
+                trigger={['click']}
+                placement="bottomRight"
+                menu={{ items: profileMenuItems, onClick: handleProfileMenuClick }}
+                popupRender={(menuNode) => (
+                  <div className="bg-white rounded-2xl shadow-xl border border-slate-100 overflow-hidden min-w-[240px]">
+                    <div className="px-4 py-3 border-b border-slate-100 bg-slate-50">
+                      <p className="text-sm font-black text-slate-900 truncate">
+                        {currentUser.full_name}
+                      </p>
+                      <p className="text-[11px] font-bold uppercase tracking-wide text-indigo-600 truncate">
+                        {roleLabel}
+                      </p>
+                      {school && (
+                        <p className="text-[11px] text-slate-400 truncate mt-0.5">{school.name}</p>
+                      )}
+                    </div>
+                    <div className="p-1">{menuNode}</div>
+                  </div>
+                )}
+              >
+                <button
+                  type="button"
+                  title={`${currentUser.full_name} (${roleLabel})`}
+                  aria-label="Menu Profil"
+                  className="w-10 h-10 rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white flex items-center justify-center text-base shadow-sm transition cursor-pointer shrink-0"
+                >
+                  <UserOutlined />
+                </button>
+              </Dropdown>
             </div>
           )}
         </div>
       </header>
 
       {!isSuperadmin && <MobileBottomNav />}
+
+      <Modal
+        title={<span className="font-bold text-sm">🔐 Ganti Password Akun</span>}
+        open={showPasswordModal}
+        onCancel={() => {
+          setShowPasswordModal(false);
+          setCurrentPassword('');
+          setNewPassword('');
+          setConfirmPassword('');
+        }}
+        footer={null}
+        centered
+      >
+        <form onSubmit={handleChangePassword} className="space-y-3 pt-2">
+          <p className="text-xs text-slate-400">
+            Password wajib minimal 8 karakter dengan kombinasi huruf dan angka. Mengganti password akan otomatis mengeluarkan sesi di perangkat lain.
+          </p>
+          <div>
+            <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">
+              Password Saat Ini *
+            </label>
+            <PasswordInput
+              value={currentPassword}
+              onChange={(e) => setCurrentPassword(e.target.value)}
+              autoComplete="current-password"
+              className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs text-slate-800"
+              required
+            />
+          </div>
+          <div>
+            <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">
+              Password Baru *
+            </label>
+            <PasswordInput
+              value={newPassword}
+              onChange={(e) => setNewPassword(e.target.value)}
+              autoComplete="new-password"
+              className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs text-slate-800"
+              required
+            />
+          </div>
+          <div>
+            <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">
+              Konfirmasi Password Baru *
+            </label>
+            <PasswordInput
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+              autoComplete="new-password"
+              className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs text-slate-800"
+              required
+            />
+          </div>
+          <div className="flex justify-end gap-2 pt-2">
+            <Button
+              onClick={() => setShowPasswordModal(false)}
+              className="rounded-xl text-xs font-bold"
+            >
+              Batal
+            </Button>
+            <Button
+              htmlType="submit"
+              type="primary"
+              loading={savingPassword}
+              className="bg-emerald-600 hover:!bg-emerald-700 border-none rounded-xl text-xs font-bold"
+            >
+              Perbarui Password
+            </Button>
+          </div>
+        </form>
+      </Modal>
     </>
   );
 }

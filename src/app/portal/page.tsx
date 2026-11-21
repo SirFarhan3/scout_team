@@ -69,7 +69,7 @@ export default function PortalPage() {
           </h2>
           <p className="text-xs sm:text-sm text-slate-500 max-w-xl mx-auto">
             Pilih <strong className="text-slate-700">Card Manajemen</strong> untuk mengelola presensi QR, anggota, regu, serta nilai latihan, atau pilih{' '}
-            <strong className="text-slate-700">Card Translasi Sandi (Project Scout Chiper)</strong> untuk menerjemahkan berbagai sandi kepramukaan.
+            <strong className="text-slate-700">Card Translasi Sandi</strong> untuk menerjemahkan berbagai sandi kepramukaan.
           </p>
         </div>
 
@@ -128,7 +128,7 @@ export default function PortalPage() {
             </div>
           </Link>
 
-          {/* 2. CARD TRANSLASI SANDI (PROJECT SCOUT CHIPER) */}
+          {/* 2. CARD TRANSLASI SANDI*/}
           <Link
             href="/sandi"
             className="group bg-white rounded-3xl p-6 sm:p-8 shadow-lg shadow-slate-200/50 border-2 border-emerald-100 hover:border-emerald-500 transition-all duration-200 flex flex-col justify-between space-y-6 hover:-translate-y-1"
@@ -139,7 +139,7 @@ export default function PortalPage() {
                   <LockOutlined />
                 </div>
                 <span className="text-[10px] font-black uppercase tracking-wider bg-emerald-50 text-emerald-700 px-3 py-1 rounded-full border border-emerald-200">
-                  Modul 02 • Project Scout Chiper
+                  Modul 02 • Translasi Sandi
                 </span>
               </div>
 
@@ -148,7 +148,7 @@ export default function PortalPage() {
                   Translasi Sandi
                 </h3>
                 <p className="text-xs font-bold text-emerald-600 mt-0.5">
-                  Project Scout Chiper • Encoder & Decoder
+                  Translasi Sandi • Encoder & Decoder
                 </p>
                 <p className="text-xs text-slate-500 mt-2 leading-relaxed">
                   Terjemahkan teks biasa menjadi Sandi Pramuka atau sebaliknya secara instan! Mendukung Sandi Morse (+ Audio & Rumput), Sandi AN, Sandi AZ, Sandi Angka, Koordinat Merah Putih, & Sandi Kotak.
@@ -173,7 +173,7 @@ export default function PortalPage() {
 
             <div className="pt-4 border-t border-slate-100 flex items-center justify-between">
               <span className="text-xs font-extrabold text-emerald-600">
-                Buka Project Scout Chiper
+                Buka Translasi Sandi
               </span>
               <span className="w-9 h-9 rounded-xl bg-emerald-50 text-emerald-600 group-hover:bg-emerald-600 group-hover:text-white flex items-center justify-center transition">
                 <ArrowRightOutlined />

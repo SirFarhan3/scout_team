@@ -477,14 +477,14 @@ export default function SandiTranslatorPage() {
   };
 
   if (loading) {
-    return <PageLoader text="Memuat Project Scout Chiper..." />;
+    return <PageLoader text="Memuat Translasi Sandi..." />;
   }
 
   return (
     <div className="min-h-screen bg-slate-100 text-slate-800 p-4 md:p-8 font-sans">
       <div className="max-w-6xl mx-auto space-y-6">
         <Header
-          title="Project Scout Chiper • Translasi Sandi Pramuka"
+          title="Translasi Sandi • Translasi Sandi Pramuka"
           subtitle={`Generator & Decoder Sandi Kepramukaan Interaktif • ${currentUser?.school?.name || 'Gugusdepan'}`}
         />
 
