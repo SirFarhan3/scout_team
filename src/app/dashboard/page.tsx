@@ -6,9 +6,9 @@ interface RecentActivityListProps {
   recentScans?: AttendanceRecord[]; // Jadikan opsional agar aman jika undefined
 }
 
-export default function RecentActivityList({ recentScans }: RecentActivityListProps) {
+export default function RecentActivityList() {
   // Berikan fallback array kosong jika recentScans bernilai undefined/null
-  const scans = recentScans ?? [];
+  const scans: AttendanceRecord[] = [];
 
   return (
     <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100 space-y-4 md:col-span-2">

@@ -227,6 +227,7 @@ export default function SuperadminPage() {
     trial: 7,
     basic: 180,
     pro: 365,
+    enterprise: 365,
   };
 
   const handlePlanChange = (selectedPlan: SubscriptionPlanCode) => {

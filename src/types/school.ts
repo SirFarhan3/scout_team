@@ -1,4 +1,4 @@
-export type SubscriptionPlanCode = 'trial' | 'basic' | 'pro';
+export type SubscriptionPlanCode = 'trial' | 'basic' | 'pro' | 'enterprise';
 export type PaidPlanCode = 'basic' | 'pro' | 'enterprise';
 export type SubscriptionStatus = 'pending' | 'trial' | 'active' | 'expired' | 'suspended';
 export type BillingCycle = 'monthly' | 'yearly';
