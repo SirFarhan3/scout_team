@@ -363,27 +363,53 @@ export default function SandiTranslatorPage() {
   );
 
   const outputText = useMemo(() => {
-    if (!inputText.trim()) return '';
+    const normalizedInput = inputText.toUpperCase();
+    if (!normalizedInput.trim()) return '';
+    let result = normalizedInput;
     switch (cipherType) {
       case 'morse':
-        return direction === 'encode' ? encodeMorse(inputText) : decodeMorse(inputText);
+        result =
+          direction === 'encode'
+            ? encodeMorse(normalizedInput)
+            : decodeMorse(normalizedInput);
+        break;
       case 'rumput':
-        return direction === 'encode' ? encodeRumput(inputText) : decodeRumput(inputText);
+        result =
+          direction === 'encode'
+            ? encodeRumput(normalizedInput)
+            : decodeRumput(normalizedInput);
+        break;
       case 'an':
-        return transformAN(inputText);
+        result = transformAN(normalizedInput);
+        break;
       case 'az':
-        return transformAZ(inputText);
+        result = transformAZ(normalizedInput);
+        break;
       case 'angka':
-        return direction === 'encode' ? encodeAngka(inputText) : decodeAngka(inputText);
+        result =
+          direction === 'encode'
+            ? encodeAngka(normalizedInput)
+            : decodeAngka(normalizedInput);
+        break;
       case 'koordinat':
-        return direction === 'encode' ? encodeKoordinat(inputText) : decodeKoordinat(inputText);
+        result =
+          direction === 'encode'
+            ? encodeKoordinat(normalizedInput)
+            : decodeKoordinat(normalizedInput);
+        break;
       case 'caesar':
-        return transformCaesar(inputText, direction === 'encode' ? caesarShift : -caesarShift);
+        result = transformCaesar(
+          normalizedInput,
+          direction === 'encode' ? caesarShift : -caesarShift
+        );
+        break;
       case 'balik':
-        return transformBalikKata(inputText);
+        result = transformBalikKata(normalizedInput);
+        break;
       default:
-        return inputText;
+        result = normalizedInput;
     }
+    return result.toUpperCase();
   }, [inputText, cipherType, direction, caesarShift]);
 
   // Kode Morse untuk visualisasi Rumput SVG & Audio Peluit
@@ -625,13 +651,13 @@ export default function SandiTranslatorPage() {
               <textarea
                 rows={6}
                 value={inputText}
-                onChange={(e) => setInputText(e.target.value)}
+                onChange={(e) => setInputText(e.target.value.toUpperCase())}
                 placeholder={
                   direction === 'encode'
-                    ? 'Ketik kalimat yang ingin diubah menjadi sandi...'
-                    : `Tempel kode ${activeCipher.name} yang ingin diterjemahkan...`
+                    ? 'KETIK KALIMAT YANG INGIN DIUBAH MENJADI SANDI...'
+                    : `TEMPEL KODE ${activeCipher.name.toUpperCase()} YANG INGIN DITERJEMAHKAN...`
                 }
-                className="w-full bg-slate-50 border border-slate-200 rounded-2xl p-4 text-sm font-mono font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition resize-none"
+                className="w-full bg-slate-50 border border-slate-200 rounded-2xl p-4 text-sm font-mono font-semibold uppercase text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition resize-none"
               />
             </div>
 
@@ -675,7 +701,7 @@ export default function SandiTranslatorPage() {
                 </div>
               </div>
 
-              <div className="w-full min-h-[152px] bg-slate-50 border border-slate-200 rounded-2xl p-4 text-sm font-mono font-bold text-indigo-700 break-words whitespace-pre-wrap select-all">
+              <div className="w-full min-h-[152px] bg-slate-50 border border-slate-200 rounded-2xl p-4 text-sm font-mono font-bold uppercase text-indigo-700 break-words whitespace-pre-wrap select-all">
                 {outputText || (
                   <span className="text-slate-400 font-normal">
                     Hasil translasi sandi akan muncul otomatis di sini...
