@@ -327,14 +327,14 @@ export default function ScanPage() {
                         </div>
                         
                         {/* Tombol Status */}
-                        <div className="grid grid-cols-4 sm:flex items-center gap-1 bg-white/80 p-1 rounded-xl shadow-sm border border-slate-200/50 w-full sm:w-auto">
+                        <div className="grid grid-cols-4 sm:flex items-center gap-1 bg-white p-1 rounded-xl shadow-sm border border-slate-200 w-full sm:w-auto">
                           <button
                             type="button"
                             onClick={() => handleStatusChange(student.id, 'Hadir')}
-                            className={`text-[10px] font-bold px-2 py-1.5 rounded-lg transition text-center ${
+                            className={`text-[10px] font-bold px-2.5 py-1.5 rounded-lg transition text-center ${
                               currentStatus === 'Hadir'
                                 ? 'bg-emerald-600 text-white shadow-sm'
-                                : 'text-slate-600 hover:text-slate-900'
+                                : 'text-slate-700 hover:bg-slate-100 hover:text-slate-900'
                             }`}
                           >
                             Hadir
@@ -342,10 +342,10 @@ export default function ScanPage() {
                           <button
                             type="button"
                             onClick={() => handleStatusChange(student.id, 'Izin')}
-                            className={`text-[10px] font-bold px-2 py-1.5 rounded-lg transition text-center ${
+                            className={`text-[10px] font-bold px-2.5 py-1.5 rounded-lg transition text-center ${
                               currentStatus === 'Izin'
                                 ? 'bg-amber-500 text-white shadow-sm'
-                                : 'text-slate-600 hover:text-slate-900'
+                                : 'text-slate-700 hover:bg-slate-100 hover:text-slate-900'
                             }`}
                           >
                             Izin
@@ -353,10 +353,10 @@ export default function ScanPage() {
                           <button
                             type="button"
                             onClick={() => handleStatusChange(student.id, 'Sakit')}
-                            className={`text-[10px] font-bold px-2 py-1.5 rounded-lg transition text-center ${
+                            className={`text-[10px] font-bold px-2.5 py-1.5 rounded-lg transition text-center ${
                               currentStatus === 'Sakit'
                                 ? 'bg-rose-500 text-white shadow-sm'
-                                : 'text-slate-600 hover:text-slate-900'
+                                : 'text-slate-700 hover:bg-slate-100 hover:text-slate-900'
                             }`}
                           >
                             Sakit
@@ -364,10 +364,10 @@ export default function ScanPage() {
                           <button
                             type="button"
                             onClick={() => handleStatusChange(student.id, 'Tidak Hadir')}
-                            className={`text-[10px] font-bold px-2 py-1.5 rounded-lg transition text-center ${
+                            className={`text-[10px] font-bold px-2.5 py-1.5 rounded-lg transition text-center ${
                               currentStatus === 'Tidak Hadir'
                                 ? 'bg-slate-700 text-white shadow-sm'
-                                : 'text-slate-600 hover:text-slate-900'
+                                : 'text-slate-700 hover:bg-slate-100 hover:text-slate-900'
                             }`}
                           >
                             Alpha

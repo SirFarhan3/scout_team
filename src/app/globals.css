@@ -190,7 +190,8 @@ html.dark .bg-slate-100 {
 }
 
 html.dark .bg-white,
-html.dark .bg-white\/95 {
+html.dark .bg-white\/95,
+html.dark .bg-white\/80 {
   background-color: #171f30 !important;
 }
 
@@ -216,6 +217,7 @@ html.dark .text-slate-400 {
 
 html.dark .border-slate-100,
 html.dark .border-slate-200,
+html.dark .border-slate-200\/50,
 html.dark .border-slate-200\/60,
 html.dark .border-slate-200\/70,
 html.dark .border-slate-200\/80 {

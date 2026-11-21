@@ -119,8 +119,8 @@ export default function Header({
         </div>
       )}
 
-      <header className="bg-white rounded-2xl sm:rounded-3xl p-4 sm:p-6 shadow-xl shadow-slate-200/50 border border-slate-100 flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3 sm:gap-4 transition-colors">
-        <div className="flex items-center justify-between gap-3">
+      <header className="bg-white rounded-2xl sm:rounded-3xl p-4 sm:p-6 shadow-xl shadow-slate-200/50 border border-slate-100 flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-3 sm:gap-4 transition-colors">
+        <div className="flex items-center justify-between gap-3 min-w-0 flex-1">
           <div className="min-w-0 flex-1 flex items-center gap-3 sm:gap-4">
             <a
               href={isSuperadmin ? '/superadmin' : '/'}
@@ -134,7 +134,7 @@ export default function Header({
             </a>
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-2 flex-wrap">
-                <a href={isSuperadmin ? '/superadmin' : '/'} className="min-w-0">
+                <a href={isSuperadmin ? '/superadmin' : '/'} className="min-w-0 max-w-full">
                   <h1 className="text-base sm:text-xl font-black text-slate-900 leading-snug truncate">
                     {title}
                   </h1>
@@ -151,7 +151,7 @@ export default function Header({
             type="button"
             onClick={toggleTheme}
             title={mode === 'dark' ? 'Mode Terang' : 'Mode Gelap'}
-            className="md:hidden bg-slate-50 hover:bg-slate-100 text-slate-700 border border-slate-200 text-xs font-bold p-2.5 rounded-xl transition flex items-center justify-center shrink-0"
+            className="lg:hidden bg-slate-50 hover:bg-slate-100 text-slate-700 border border-slate-200 text-xs font-bold p-2.5 rounded-xl transition flex items-center justify-center shrink-0"
           >
             {mode === 'dark' ? (
               <SunOutlined className="text-amber-400 text-sm" />
@@ -161,7 +161,7 @@ export default function Header({
           </button>
         </div>
 
-        <div className="flex items-center gap-2 w-full md:w-auto justify-between md:justify-end">
+        <div className="flex flex-wrap items-center gap-2.5 w-full lg:w-auto justify-between lg:justify-end shrink-0">
           <button
             type="button"
             onClick={toggleTheme}
@@ -170,7 +170,7 @@ export default function Header({
                 ? 'Beralih ke Mode Terang (Light)'
                 : 'Beralih ke Mode Gelap (Dark)'
             }
-            className="hidden md:flex bg-slate-50 hover:bg-slate-100 text-slate-700 border border-slate-200 text-xs font-bold px-3.5 py-2.5 rounded-2xl transition items-center gap-1.5 shrink-0 cursor-pointer"
+            className="hidden lg:flex bg-slate-50 hover:bg-slate-100 text-slate-700 border border-slate-200 text-xs font-bold px-3.5 py-2.5 rounded-2xl transition items-center gap-1.5 shrink-0 cursor-pointer"
           >
             {mode === 'dark' ? (
               <>
@@ -186,8 +186,8 @@ export default function Header({
           </button>
 
           {currentUser && (
-            <div className="flex items-center gap-2 sm:gap-3 w-full md:w-auto justify-between md:justify-end bg-slate-50 px-3 py-2 rounded-2xl border border-slate-200">
-              <div className="min-w-0 pr-1">
+            <div className="flex flex-wrap items-center gap-2.5 sm:gap-3 w-full lg:w-auto justify-between lg:justify-end bg-slate-50 px-3.5 py-2 rounded-2xl border border-slate-200 shrink-0">
+              <div className="min-w-[110px] max-w-[180px] pr-1">
                 <p className="text-xs font-bold text-slate-800 truncate">
                   {currentUser.full_name}
                 </p>
