@@ -1,3 +1,4 @@
+import crypto from 'crypto';
 import { NextResponse } from 'next/server';
 import { dbExec, dbOne, hashPassword, toSqlBool } from '@/lib/turso';
 import { assertSameOriginMutation } from '@/lib/serverSecurity';
@@ -7,8 +8,14 @@ import {
   assertStrongPassword,
   assertValidUuid,
 } from '@/lib/sanitize';
-import { PLAN_CATALOG, isSubscriptionPlanCode, isSubscriptionStatus } from '@/lib/plans';
-import type { SubscriptionPlanCode } from '@/types/school';
+import { isSubscriptionStatus } from '@/lib/plans';
+import {
+  SUBSCRIPTION_PLANS,
+  getSubscriptionPlanConfig,
+  isSubscriptionPlanCode,
+  type SubscriptionPlanCode,
+} from '@/lib/subscription-plans';
+import { topupAiCredits } from '@/lib/aiCredits';
 import { revokeAllUserSessions } from '@/lib/session';
 import { ValidationError, handleApiError, requireAuth, toSchoolDTO } from '@/lib/authServer';
 import { logSecurityEvent } from '@/lib/auditLog';
@@ -61,13 +68,17 @@ export async function PATCH(
     if (body.city !== undefined) {
       fields.city = assertSafeText(body.city, 'Kota', 80);
     }
+    const planChanged =
+      body.subscription_plan !== undefined &&
+      body.subscription_plan !== existing.subscription_plan;
+
     if (body.subscription_plan !== undefined) {
       if (!isSubscriptionPlanCode(body.subscription_plan)) {
         throw new ValidationError('Paket langganan tidak valid.');
       }
       const nextPlan: SubscriptionPlanCode = body.subscription_plan;
       fields.subscription_plan = nextPlan;
-      const planDef = PLAN_CATALOG[nextPlan];
+      const planDef = SUBSCRIPTION_PLANS[nextPlan];
       if (body.max_students === undefined) fields.max_students = planDef.maxStudents;
       if (body.max_users === undefined) fields.max_users = planDef.maxUsers;
     }
@@ -77,19 +88,20 @@ export async function PATCH(
       }
       fields.subscription_status = body.subscription_status;
     }
-    if (body.extendDays !== undefined) {
+    if (body.extendDays !== undefined && Number(body.extendDays) > 0) {
       const days = Number(body.extendDays);
       if (Number.isNaN(days) || days < 1 || days > 3650) {
         throw new ValidationError('Jumlah hari perpanjangan harus antara 1 dan 3650.');
       }
       const nowMs = Date.now();
       const curMs = new Date(String(existing.subscription_expires_at)).getTime();
-      const baseMs = !Number.isNaN(curMs) && curMs > nowMs ? curMs : nowMs;
+      const baseMs = !planChanged && !Number.isNaN(curMs) && curMs > nowMs ? curMs : nowMs;
       fields.subscription_expires_at = new Date(
         baseMs + days * 24 * 60 * 60 * 1000
       ).toISOString();
       if (body.subscription_status === undefined) {
-        fields.subscription_status = 'active';
+        const targetPlan = String(fields.subscription_plan || existing.subscription_plan || 'trial');
+        fields.subscription_status = targetPlan === 'trial' ? 'trial' : 'active';
       }
     } else if (body.subscription_expires_at !== undefined) {
       const parsedDate = new Date(String(body.subscription_expires_at));
@@ -97,6 +109,14 @@ export async function PATCH(
         throw new ValidationError('Tanggal kadaluarsa tidak valid.');
       }
       fields.subscription_expires_at = parsedDate.toISOString();
+    } else if (planChanged) {
+      const nextPlanCfg = getSubscriptionPlanConfig(fields.subscription_plan);
+      fields.subscription_expires_at = new Date(
+        Date.now() + nextPlanCfg.durationDays * 24 * 60 * 60 * 1000
+      ).toISOString();
+      if (body.subscription_status === undefined) {
+        fields.subscription_status = nextPlanCfg.code === 'trial' ? 'trial' : 'active';
+      }
     }
 
     if (body.max_students !== undefined) {
@@ -189,17 +209,61 @@ export async function PATCH(
       }
     }
 
+    const periodExtended =
+      body.extendDays !== undefined && Number(body.extendDays) > 0;
+    const effectivePlanCfg = getSubscriptionPlanConfig(
+      fields.subscription_plan || existing.subscription_plan || 'trial'
+    );
+
+    // Reset ai_plan_credits, max_students, dan max_users sesuai paket jika paket diganti atau periode langganan diperpanjang (tanpa menyentuh ai_topup_credits)
+    let resetCreditsToLog: number | null = null;
+    if (planChanged || periodExtended) {
+      if (body.max_students === undefined) fields.max_students = effectivePlanCfg.maxStudents;
+      if (body.max_users === undefined) fields.max_users = effectivePlanCfg.maxUsers;
+      resetCreditsToLog = effectivePlanCfg.aiPlanCredits;
+      fields.ai_plan_credits = resetCreditsToLog;
+    }
+
     const entries = Object.entries(fields);
     const setSql = entries.map(([k]) => `${k} = ?`).join(', ');
     const args = [...entries.map(([, v]) => v), schoolId];
 
-    const updated = await dbOne<Record<string, unknown>>(
+    let updated = await dbOne<Record<string, unknown>>(
       `UPDATE schools SET ${setSql} WHERE id = ? RETURNING *`,
       args
     );
 
     if (!updated) {
       throw new Error('Gagal memperbarui sekolah.');
+    }
+
+    if (resetCreditsToLog !== null) {
+      await dbExec(
+        `INSERT INTO ai_credit_logs (id, school_id, user_id, type, source, amount, feature, created_at)
+         VALUES (?, ?, ?, 'plan_reset', 'plan', ?, ?, ?)`,
+        [
+          crypto.randomUUID(),
+          schoolId,
+          ctx.user.id,
+          resetCreditsToLog,
+          `superadmin_plan_reset:${effectivePlanCfg.code}`,
+          new Date().toISOString(),
+        ]
+      );
+    }
+
+    if (body.topupAiCredits !== undefined && Number(body.topupAiCredits) > 0) {
+      await topupAiCredits(
+        schoolId,
+        Number(body.topupAiCredits),
+        ctx.user.id,
+        'superadmin_topup'
+      );
+      const refreshed = await dbOne<Record<string, unknown>>(
+        `SELECT * FROM schools WHERE id = ? LIMIT 1`,
+        [schoolId]
+      );
+      if (refreshed) updated = refreshed;
     }
 
     await logSecurityEvent({

@@ -14,8 +14,11 @@ import {
   assertStrongPassword,
   slugifySchoolName,
 } from '@/lib/sanitize';
-import { PLAN_CATALOG, isSubscriptionPlanCode } from '@/lib/plans';
-import type { SubscriptionPlanCode } from '@/types/school';
+import {
+  SUBSCRIPTION_PLANS,
+  isSubscriptionPlanCode,
+  type SubscriptionPlanCode,
+} from '@/lib/subscription-plans';
 import { ValidationError, handleApiError, requireAuth, toSchoolDTO } from '@/lib/authServer';
 import { logSecurityEvent } from '@/lib/auditLog';
 import { getClientIp } from '@/lib/rateLimit';
@@ -45,8 +48,11 @@ export async function POST(request: Request) {
     if (adminFullName.length < 2) throw new ValidationError('Nama admin minimal 2 karakter.');
 
     const planCode: SubscriptionPlanCode = isSubscriptionPlanCode(body.plan) ? body.plan : 'pro';
-    const planDef = PLAN_CATALOG[planCode];
-    const durationDays = Math.max(1, Math.min(3650, Number(body.durationDays) || 365));
+    const planDef = SUBSCRIPTION_PLANS[planCode];
+    const durationDays = Math.max(
+      1,
+      Math.min(3650, Number(body.durationDays) || planDef.durationDays)
+    );
     const status = planCode === 'trial' ? 'trial' : 'active';
 
     const existingSchool = await dbOne<{ id: string; name: string }>(
@@ -75,12 +81,13 @@ export async function POST(request: Request) {
     const expiresAt = new Date(now.getTime() + durationDays * 24 * 60 * 60 * 1000);
     const schoolId = crypto.randomUUID();
 
+    const initialPlanCredits = planDef.aiPlanCredits;
     const schoolRow = await dbOne<Record<string, unknown>>(
       `INSERT INTO schools (
          id, name, slug, npsn, city, gugusdepan, contact_name,
          subscription_plan, subscription_status, subscription_started_at, subscription_expires_at,
-         max_students, max_users, ai_features_enabled, created_at, updated_at
-       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+         max_students, max_users, ai_features_enabled, ai_plan_credits, ai_topup_credits, created_at, updated_at
+       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?)
        RETURNING *`,
       [
         schoolId,
@@ -97,6 +104,7 @@ export async function POST(request: Request) {
         planDef.maxStudents,
         planDef.maxUsers,
         toSqlBool(planDef.aiFeaturesEnabled),
+        initialPlanCredits,
         nowIso,
         nowIso,
       ]
@@ -106,6 +114,12 @@ export async function POST(request: Request) {
       throw new Error('Gagal membuat sekolah.');
     }
     createdSchoolId = String(schoolRow.id);
+
+    await dbExec(
+      `INSERT INTO ai_credit_logs (id, school_id, user_id, type, source, amount, feature, created_at)
+       VALUES (?, ?, ?, 'plan_reset', 'plan', ?, ?, ?)`,
+      [crypto.randomUUID(), createdSchoolId, ctx.user.id, initialPlanCredits, `superadmin_create:${planCode}`, nowIso]
+    );
 
     let createdUser;
     try {

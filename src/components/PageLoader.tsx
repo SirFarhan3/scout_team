@@ -10,7 +10,13 @@ export default function PageLoader({ text = 'Memuat Data...' }: PageLoaderProps)
   return (
     <div className="min-h-screen bg-slate-100 flex items-center justify-center font-sans p-4">
       <div className="flex items-center gap-3.5 bg-white px-6 py-4 rounded-3xl shadow-lg border border-slate-100">
-        <span className="animate-spin text-2xl">⚡</span>
+        <div className="w-9 h-9 rounded-xl overflow-hidden shadow-sm animate-pulse shrink-0">
+          <img
+            src="/app_logo.jpg"
+            alt="ScoutFN"
+            className="w-full h-full object-cover"
+          />
+        </div>
         <span className="text-sm font-bold text-slate-700">{text}</span>
       </div>
     </div>

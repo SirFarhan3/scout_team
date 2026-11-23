@@ -1,5 +1,10 @@
 import { NextResponse } from 'next/server';
-import { generateWithAI } from '@/lib/aiService';
+import { extractCleanJsonText, generateWithAI } from '@/lib/aiService';
+import {
+  commitAiCreditLog,
+  refundAiCredit,
+  reserveAiCredit,
+} from '@/lib/aiCredits';
 import { assertSameOriginMutation, sanitizePromptField } from '@/lib/serverSecurity';
 import { checkRateLimit, getClientIp } from '@/lib/rateLimit';
 import { handleApiError, requireAuth } from '@/lib/authServer';
@@ -13,9 +18,10 @@ export async function POST(request: Request) {
       requireActiveSubscription: true,
       requireAiFeature: true,
     });
+    const schoolId = ctx.school!.id;
 
     const ip = getClientIp(request);
-    const limit = checkRateLimit(`ai:proker:${ctx.school!.id}:${ip}`, 10, 10 * 60 * 1000);
+    const limit = checkRateLimit(`ai:proker:${schoolId}:${ip}`, 10, 10 * 60 * 1000);
     if (!limit.allowed) {
       return NextResponse.json(
         {
@@ -40,6 +46,22 @@ export async function POST(request: Request) {
       return NextResponse.json(
         { success: false, message: 'Golongan dan Tahun Ajaran wajib diisi!' },
         { status: 400 }
+      );
+    }
+
+    // 1. Atomic Reserve Kuota AI Sekolah
+    const reservation = await reserveAiCredit(schoolId);
+    if (!reservation.success) {
+      return NextResponse.json(
+        {
+          success: false,
+          code: 'INSUFFICIENT_AI_CREDITS',
+          error:
+            'Kuota AI sekolah Anda telah habis (Paket: 0 | Token: 0). Silakan beli Token AI tambahan atau perpanjang paket langganan.',
+          message:
+            'Kuota AI sekolah Anda telah habis (Paket: 0 | Token: 0). Silakan beli Token AI tambahan atau perpanjang paket langganan.',
+        },
+        { status: 403 }
       );
     }
 
@@ -76,29 +98,53 @@ export async function POST(request: Request) {
       Buatkan total keseluruhan antara 25 sampai 30 pekan pertemuan (termasuk 1 pekan perkemahan).
     `;
 
-    const { rawTextResult, providerUsed } = await generateWithAI(prompt);
+    try {
+      const { rawTextResult, providerUsed } = await generateWithAI(prompt);
+      const cleanJsonStr = extractCleanJsonText(rawTextResult);
+      const generatedActivities = JSON.parse(cleanJsonStr);
 
-    let cleanJsonStr = rawTextResult.trim();
-    if (cleanJsonStr.startsWith('```json')) {
-      cleanJsonStr = cleanJsonStr.replace(/^```json/, '').replace(/```$/, '').trim();
-    } else if (cleanJsonStr.startsWith('```')) {
-      cleanJsonStr = cleanJsonStr.replace(/^```/, '').replace(/```$/, '').trim();
+      if (!Array.isArray(generatedActivities) || generatedActivities.length === 0) {
+        throw new Error('Respons AI tidak menghasilkan daftar kegiatan yang valid.');
+      }
+
+      const credits = await commitAiCreditLog(
+        schoolId,
+        ctx.user.id,
+        reservation.source,
+        'generate_proker'
+      );
+
+      return NextResponse.json({
+        success: true,
+        providerUsed,
+        creditSource: reservation.source,
+        credits,
+        kegiatan: generatedActivities,
+      });
+    } catch (aiErr: unknown) {
+      await refundAiCredit(schoolId, reservation.source).catch((refundErr) => {
+        console.error('[AI Credits] Gagal melakukan refund kuota AI:', refundErr);
+      });
+      throw aiErr;
     }
-
-    const generatedActivities = JSON.parse(cleanJsonStr);
-
-    return NextResponse.json({
-      success: true,
-      providerUsed,
-      kegiatan: generatedActivities,
-    });
-  } catch (error: any) {
-    if (error?.status === 401 || error?.status === 402 || error?.status === 403 || error?.status === 400) {
+  } catch (error: unknown) {
+    const errWithStatus = error as { status?: number; message?: string };
+    if (
+      errWithStatus?.status === 401 ||
+      errWithStatus?.status === 402 ||
+      errWithStatus?.status === 403 ||
+      errWithStatus?.status === 400
+    ) {
       return handleApiError(error);
     }
-    console.error('Error generating proker:', error);
+    console.error('Error generating proker (OmniRoute):', error);
     return NextResponse.json(
-      { success: false, message: 'Gagal menghasilkan program kerja dari AI.' },
+      {
+        success: false,
+        message:
+          errWithStatus?.message ||
+          'Gagal menghasilkan program kerja dari AI. Kuota AI sekolah Anda tidak dipotong.',
+      },
       { status: 500 }
     );
   }

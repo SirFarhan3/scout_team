@@ -67,14 +67,14 @@ export default function LoginPage() {
         </button>
 
         <div className="text-center space-y-2">
-          <div className="w-20 h-20 rounded-3xl overflow-hidden bg-white border border-slate-200 flex items-center justify-center mx-auto shadow-lg">
+          <div className="w-28 h-28 rounded-3xl overflow-hidden bg-white border border-slate-200 flex items-center justify-center mx-auto shadow-lg p-1.5">
             <img
-              src="/logo.jpg"
-              alt="Logo Scout Team"
+              src="/header_logo_2.jpg"
+              alt="Logo ScoutFN"
               className="w-full h-full object-contain"
             />
           </div>
-          <h1 className="text-2xl font-black tracking-tight text-slate-900">Scout Portal</h1>
+          <h1 className="text-2xl font-black tracking-tight text-slate-900">ScoutFN Portal</h1>
           <p className="text-xs text-slate-400 font-medium">
             Masuk ke Akun Sekolah Anda (1 Akun = 1 Sekolah)
           </p>

@@ -1,102 +1,30 @@
-import type {
-  BillingCycle,
-  PaidPlanCode,
-  SubscriptionPlanCode,
-  SubscriptionStatus,
-} from '@/types/school';
+import {
+  PAID_SUBSCRIPTION_PLANS,
+  SUBSCRIPTION_PLANS,
+  getSubscriptionPlanConfig,
+  isPaidPlanCode,
+  isSubscriptionPlanCode,
+  normalizePlanCode,
+  type BillingCycle,
+  type PaidPlanCode,
+  type SubscriptionPlanCode,
+  type SubscriptionPlanConfig,
+  type SubscriptionStatus,
+} from '@/lib/subscription-plans';
 
-export interface PlanDefinition {
-  code: SubscriptionPlanCode;
-  name: string;
-  tagline: string;
-  monthlyPriceIdr: number;
-  yearlyPriceIdr: number;
-  maxStudents: number;
-  maxUsers: number;
-  aiFeaturesEnabled: boolean;
-  features: string[];
-}
+export type PlanDefinition = SubscriptionPlanConfig;
 
-export const PLAN_CATALOG: Record<SubscriptionPlanCode, PlanDefinition> = {
-  trial: {
-    code: 'trial',
-    name: 'Trial 14 Hari',
-    tagline: 'Uji coba penuh untuk gugus depan baru',
-    monthlyPriceIdr: 0,
-    yearlyPriceIdr: 0,
-    maxStudents: 40,
-    maxUsers: 5,
-    aiFeaturesEnabled: true,
-    features: [
-      'Maksimal 40 anggota pramuka',
-      'Maksimal 5 akun admin/pembina',
-      'Presensi QR & laporan nilai dasar',
-      'Akses uji coba generator AI',
-    ],
-  },
-  basic: {
-    code: 'basic',
-    name: 'Paket Gugus Depan (Basic)',
-    tagline: 'Ideal untuk SD/MI atau pangkalan rintisan',
-    monthlyPriceIdr: 99000,
-    yearlyPriceIdr: 990000,
-    maxStudents: 150,
-    maxUsers: 8,
-    aiFeaturesEnabled: true,
-    features: [
-      'Maksimal 150 anggota pramuka',
-      'Maksimal 8 akun pengelola (Admin/Pembina/Pembantu Pembina)',
-      'Presensi QR Code, Rekap Nilai Excel & Log Book',
-      'Klasemen Regu, Siswa Terbaik & Manajemen Poin',
-    ],
-  },
-  pro: {
-    code: 'pro',
-    name: 'Paket Pangkalan Aktif (Pro)',
-    tagline: 'Untuk SMP/MTs, SMA/SMK, atau gugus depan besar',
-    monthlyPriceIdr: 199000,
-    yearlyPriceIdr: 1990000,
-    maxStudents: 500,
-    maxUsers: 25,
-    aiFeaturesEnabled: true,
-    features: [
-      'Maksimal 500 anggota pramuka',
-      'Maksimal 25 akun pengelola',
-      'AI Generator Materi & Program Kerja Tahunan',
-      'Integrasi Webhook Bot Telegram Log Harian',
-    ],
-  },
-  enterprise: {
-    code: 'enterprise',
-    name: 'Paket Kwartir / Yayasan (Enterprise)',
-    tagline: 'Kapasitas ekstra besar dengan dukungan prioritas',
-    monthlyPriceIdr: 399000,
-    yearlyPriceIdr: 3990000,
-    maxStudents: 5000,
-    maxUsers: 100,
-    aiFeaturesEnabled: true,
-    features: [
-      'Hingga 5.000 anggota pramuka per sekolah',
-      'Hingga 100 akun pembina & pembantu pembina',
-      'Semua fitur AI, ekspor massal & Telegram Bot',
-      'Dukungan onboarding & audit keamanan prioritas',
-    ],
-  },
+export {
+  SUBSCRIPTION_PLANS,
+  isPaidPlanCode,
+  isSubscriptionPlanCode,
+  normalizePlanCode,
+  getSubscriptionPlanConfig,
 };
 
-export const PAID_PLANS: PlanDefinition[] = [
-  PLAN_CATALOG.basic,
-  PLAN_CATALOG.pro,
-  PLAN_CATALOG.enterprise,
-];
+export const PLAN_CATALOG: Record<SubscriptionPlanCode, PlanDefinition> = SUBSCRIPTION_PLANS;
 
-export function isPaidPlanCode(val: unknown): val is PaidPlanCode {
-  return val === 'basic' || val === 'pro' || val === 'enterprise';
-}
-
-export function isSubscriptionPlanCode(val: unknown): val is SubscriptionPlanCode {
-  return val === 'trial' || isPaidPlanCode(val);
-}
+export const PAID_PLANS: PlanDefinition[] = PAID_SUBSCRIPTION_PLANS;
 
 export function isSubscriptionStatus(val: unknown): val is SubscriptionStatus {
   return (
@@ -108,9 +36,8 @@ export function isSubscriptionStatus(val: unknown): val is SubscriptionStatus {
   );
 }
 
-export function getPlanPriceIdr(planCode: PaidPlanCode, cycle: BillingCycle): number {
-  const plan = PLAN_CATALOG[planCode];
-  return cycle === 'yearly' ? plan.yearlyPriceIdr : plan.monthlyPriceIdr;
+export function getPlanPriceIdr(planCode: PaidPlanCode, _cycle?: BillingCycle): number {
+  return SUBSCRIPTION_PLANS[planCode].price;
 }
 
 export function isSchoolSubscriptionActive(school: {

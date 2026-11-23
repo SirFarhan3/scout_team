@@ -70,8 +70,15 @@ export async function POST(request: Request) {
     const currentUsers = Number(countRes?.cnt) || 0;
 
     if (currentUsers >= ctx.school!.max_users) {
-      throw new ValidationError(
-        `Kuota akun pengelola (${ctx.school!.max_users} user) di paket sekolah Anda sudah penuh.`
+      const limitMsg = `Batas maksimal admin/pembina untuk paket Anda (${ctx.school!.max_users} akun) telah tercapai. Silakan upgrade paket.`;
+      return NextResponse.json(
+        {
+          success: false,
+          code: 'MAX_USERS_REACHED',
+          error: limitMsg,
+          message: limitMsg,
+        },
+        { status: 403 }
       );
     }
 

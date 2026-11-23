@@ -58,6 +58,7 @@ export const superadminService = {
       subscription_plan?: SubscriptionPlanCode;
       subscription_status?: SubscriptionStatus;
       extendDays?: number;
+      topupAiCredits?: number;
       max_students?: number;
       max_users?: number;
       ai_features_enabled?: boolean;

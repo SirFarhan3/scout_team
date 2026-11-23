@@ -28,6 +28,8 @@ CREATE TABLE IF NOT EXISTS schools (
   max_students INTEGER NOT NULL DEFAULT 40 CHECK (max_students > 0),
   max_users INTEGER NOT NULL DEFAULT 5 CHECK (max_users > 0),
   ai_features_enabled INTEGER NOT NULL DEFAULT 1 CHECK (ai_features_enabled IN (0, 1)),
+  ai_plan_credits INTEGER NOT NULL DEFAULT 2 CHECK (ai_plan_credits >= 0),
+  ai_topup_credits INTEGER NOT NULL DEFAULT 0 CHECK (ai_topup_credits >= 0),
   telegram_chat_id INTEGER UNIQUE,
   deleted_at TEXT,
   created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
@@ -345,11 +347,29 @@ BEGIN
 END;
 
 -- ----------------------------------------------------------------------------
+-- ----------------------------------------------------------------------------
+-- 7B. TABEL LOG KUOTA & TOKEN AI (HYBRID: PLAN CREDITS + TOP-UP CREDITS)
+-- ----------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS ai_credit_logs (
+  id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(4)) || '-' || hex(randomblob(2)) || '-4' || substr(hex(randomblob(2)), 2) || '-' || substr('89ab', 1 + (abs(random()) % 4), 1) || substr(hex(randomblob(2)), 2) || '-' || hex(randomblob(6)))),
+  school_id TEXT NOT NULL REFERENCES schools(id) ON DELETE CASCADE,
+  user_id TEXT REFERENCES users(id) ON DELETE SET NULL,
+  type TEXT NOT NULL CHECK (type IN ('usage', 'plan_reset', 'topup', 'refund')),
+  source TEXT NOT NULL CHECK (source IN ('plan', 'topup')),
+  amount INTEGER NOT NULL,
+  feature TEXT,
+  created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_ai_credit_logs_school_id
+  ON ai_credit_logs (school_id, created_at DESC);
+
 -- 8. TRIGGER CASCADE & CLEANUP (AMAN DI TURSO HTTP STATELESS CONNECTION)
 -- ----------------------------------------------------------------------------
 CREATE TRIGGER IF NOT EXISTS trg_schools_cleanup_del
 BEFORE DELETE ON schools
 BEGIN
+  DELETE FROM ai_credit_logs WHERE school_id = OLD.id;
   DELETE FROM user_sessions WHERE school_id = OLD.id;
   DELETE FROM subscription_invoices WHERE school_id = OLD.id;
   DELETE FROM security_audit_logs WHERE school_id = OLD.id;

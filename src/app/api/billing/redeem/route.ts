@@ -4,8 +4,11 @@ import { dbExec, dbOne, toBool, toSqlBool } from '@/lib/turso';
 import { assertSameOriginMutation } from '@/lib/serverSecurity';
 import { checkRateLimit, getClientIp } from '@/lib/rateLimit';
 import { assertSafeText } from '@/lib/sanitize';
-import { PLAN_CATALOG, isPaidPlanCode } from '@/lib/plans';
-import type { PaidPlanCode } from '@/types/school';
+import {
+  SUBSCRIPTION_PLANS,
+  isPaidPlanCode,
+  type PaidPlanCode,
+} from '@/lib/subscription-plans';
 import { ValidationError, handleApiError, requireAuth, toSchoolDTO } from '@/lib/authServer';
 import { logSecurityEvent } from '@/lib/auditLog';
 
@@ -91,7 +94,7 @@ export async function POST(request: Request) {
       throw new ValidationError('Kode lisensi sedang atau sudah digunakan. Silakan periksa kembali.');
     }
 
-    const planDef = PLAN_CATALOG[keyPlanCode];
+    const planDef = SUBSCRIPTION_PLANS[keyPlanCode];
     const nowMs = Date.now();
     const currentExpiresMs = new Date(ctx.school!.subscription_expires_at).getTime();
     const baseMs =
@@ -103,10 +106,11 @@ export async function POST(request: Request) {
       baseMs + Number(keyRow.duration_days) * 24 * 60 * 60 * 1000
     ).toISOString();
 
+    const nextPlanCredits = planDef.aiPlanCredits;
     const updatedSchool = await dbOne<Record<string, unknown>>(
       `UPDATE schools
        SET subscription_plan = ?, subscription_status = 'active', subscription_expires_at = ?,
-           max_students = ?, max_users = ?, ai_features_enabled = ?, updated_at = ?
+           max_students = ?, max_users = ?, ai_features_enabled = ?, ai_plan_credits = ?, updated_at = ?
        WHERE id = ?
        RETURNING *`,
       [
@@ -115,6 +119,7 @@ export async function POST(request: Request) {
         planDef.maxStudents,
         planDef.maxUsers,
         toSqlBool(planDef.aiFeaturesEnabled),
+        nextPlanCredits,
         nowIso,
         ctx.school!.id,
       ]
@@ -123,6 +128,19 @@ export async function POST(request: Request) {
     if (!updatedSchool) {
       throw new Error('Gagal mengaktifkan langganan sekolah.');
     }
+
+    await dbExec(
+      `INSERT INTO ai_credit_logs (id, school_id, user_id, type, source, amount, feature, created_at)
+       VALUES (?, ?, ?, 'plan_reset', 'plan', ?, ?, ?)`,
+      [
+        crypto.randomUUID(),
+        ctx.school!.id,
+        ctx.user.id,
+        nextPlanCredits,
+        `license_redeem:${keyPlanCode}`,
+        nowIso,
+      ]
+    );
 
     const invoiceNumber = `LIC-${nowIso.slice(0, 10).replace(/-/g, '')}-${crypto
       .randomBytes(3)

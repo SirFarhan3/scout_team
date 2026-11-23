@@ -16,12 +16,12 @@ import {
   slugifySchoolName,
 } from '@/lib/sanitize';
 import {
-  PLAN_CATALOG,
-  getPlanPriceIdr,
+  SUBSCRIPTION_PLANS,
   isPaidPlanCode,
   isSubscriptionPlanCode,
-} from '@/lib/plans';
-import type { SubscriptionPlanCode } from '@/types/school';
+  type SubscriptionPlanCode,
+} from '@/lib/subscription-plans';
+import { getPlanPriceIdr } from '@/lib/plans';
 import { createServerSession } from '@/lib/session';
 import { ValidationError, handleApiError, toSchoolDTO } from '@/lib/authServer';
 import { logSecurityEvent } from '@/lib/auditLog';
@@ -67,8 +67,9 @@ export async function POST(request: Request) {
     }
 
     const rawPlan: SubscriptionPlanCode = isSubscriptionPlanCode(body.plan) ? body.plan : 'trial';
-    const billingCycle = body.billingCycle === 'yearly' ? 'yearly' : 'monthly';
-    const planDef = PLAN_CATALOG[rawPlan];
+    const billingCycle =
+      body.billingCycle === 'yearly' || rawPlan === 'pro' ? 'yearly' : 'monthly';
+    const planDef = SUBSCRIPTION_PLANS[rawPlan];
 
     // Cek apakah nama sekolah sudah terdaftar (case-insensitive, abaikan yang sudah di-soft delete)
     const existingSchool = await dbOne<{ id: string; name: string }>(
@@ -101,16 +102,17 @@ export async function POST(request: Request) {
     const nowIso = now.toISOString();
     const isTrial = rawPlan === 'trial';
     const expiresAt = isTrial
-      ? new Date(now.getTime() + 14 * 24 * 60 * 60 * 1000)
+      ? new Date(now.getTime() + SUBSCRIPTION_PLANS.trial.durationDays * 24 * 60 * 60 * 1000)
       : now; // Paket berbayar berstatus pending hingga dibayar/redeem lisensi
 
+    const initialPlanCredits = planDef.aiPlanCredits;
     const schoolId = crypto.randomUUID();
     const schoolRow = await dbOne<Record<string, unknown>>(
       `INSERT INTO schools (
          id, name, slug, npsn, city, gugusdepan, contact_name, contact_phone,
          subscription_plan, subscription_status, subscription_started_at, subscription_expires_at,
-         max_students, max_users, ai_features_enabled, created_at, updated_at
-       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+         max_students, max_users, ai_features_enabled, ai_plan_credits, ai_topup_credits, created_at, updated_at
+       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?)
        RETURNING *`,
       [
         schoolId,
@@ -128,6 +130,7 @@ export async function POST(request: Request) {
         planDef.maxStudents,
         planDef.maxUsers,
         toSqlBool(planDef.aiFeaturesEnabled),
+        initialPlanCredits,
         nowIso,
         nowIso,
       ]
@@ -137,6 +140,12 @@ export async function POST(request: Request) {
       throw new Error('Gagal mendaftarkan sekolah.');
     }
     createdSchoolId = String(schoolRow.id);
+
+    await dbExec(
+      `INSERT INTO ai_credit_logs (id, school_id, user_id, type, source, amount, feature, created_at)
+       VALUES (?, ?, NULL, 'plan_reset', 'plan', ?, ?, ?)`,
+      [crypto.randomUUID(), createdSchoolId, initialPlanCredits, `register:${rawPlan}`, nowIso]
+    );
 
     // Buat akun Admin pertama terikat strict ke school_id baru ini
     let createdUser;

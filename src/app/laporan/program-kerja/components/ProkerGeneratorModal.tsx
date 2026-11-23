@@ -61,13 +61,17 @@ export default function ProkerGeneratorModal({
         </div>
         <div>
           <label className="block text-sm font-medium text-slate-700 mb-1">Golongan</label>
-          <input
-            type="text"
+          <select
             value={golongan}
             onChange={(e) => setGolongan(e.target.value)}
             className="w-full px-3 py-2 border rounded-lg"
             disabled={generating}
-          />
+          >
+            <option value="Siaga">Siaga</option>
+            <option value="Penggalang">Penggalang</option>
+            <option value="Penegak">Penegak</option>
+            <option value="Pandega">Pandega</option>
+          </select>
         </div>
         <div>
           <label className="block text-sm font-medium text-slate-700 mb-1">Nama Pangkalan</label>

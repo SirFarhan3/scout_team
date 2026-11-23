@@ -1,9 +1,13 @@
+import crypto from 'crypto';
 import { NextResponse } from 'next/server';
 import { dbExec, dbOne, toSqlBool } from '@/lib/turso';
 import { assertSameOriginMutation } from '@/lib/serverSecurity';
 import { assertSafeText, assertValidUuid } from '@/lib/sanitize';
-import { PLAN_CATALOG, isPaidPlanCode } from '@/lib/plans';
-import type { PaidPlanCode } from '@/types/school';
+import {
+  SUBSCRIPTION_PLANS,
+  isPaidPlanCode,
+  type PaidPlanCode,
+} from '@/lib/subscription-plans';
 import { ValidationError, handleApiError, requireAuth } from '@/lib/authServer';
 import { logSecurityEvent } from '@/lib/auditLog';
 import { getClientIp } from '@/lib/rateLimit';
@@ -56,8 +60,8 @@ export async function POST(
         throw new ValidationError('Sekolah tidak ditemukan.');
       }
 
-      const planDef = PLAN_CATALOG[invoicePlanCode];
-      const days = invoice.billing_cycle === 'yearly' ? 365 : 30;
+      const planDef = SUBSCRIPTION_PLANS[invoicePlanCode];
+      const days = planDef.durationDays;
       const nowMs = Date.now();
       const curMs = new Date(String(schoolRow.subscription_expires_at)).getTime();
       const isCurrentlyActive =
@@ -67,10 +71,11 @@ export async function POST(
       const baseMs = isCurrentlyActive ? curMs : nowMs;
       const nextExpiresAt = new Date(baseMs + days * 24 * 60 * 60 * 1000).toISOString();
 
+      const nextPlanCredits = planDef.aiPlanCredits;
       await dbExec(
         `UPDATE schools
          SET subscription_plan = ?, subscription_status = 'active', subscription_expires_at = ?,
-             max_students = ?, max_users = ?, ai_features_enabled = ?, updated_at = ?
+             max_students = ?, max_users = ?, ai_features_enabled = ?, ai_plan_credits = ?, updated_at = ?
          WHERE id = ?`,
         [
           invoicePlanCode,
@@ -78,8 +83,22 @@ export async function POST(
           planDef.maxStudents,
           planDef.maxUsers,
           toSqlBool(planDef.aiFeaturesEnabled),
+          nextPlanCredits,
           nowIso,
           String(invoice.school_id),
+        ]
+      );
+
+      await dbExec(
+        `INSERT INTO ai_credit_logs (id, school_id, user_id, type, source, amount, feature, created_at)
+         VALUES (?, ?, ?, 'plan_reset', 'plan', ?, ?, ?)`,
+        [
+          crypto.randomUUID(),
+          String(invoice.school_id),
+          ctx.user.id,
+          nextPlanCredits,
+          `invoice_approved:${invoicePlanCode}`,
+          nowIso,
         ]
       );
     }

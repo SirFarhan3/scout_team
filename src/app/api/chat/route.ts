@@ -1,13 +1,8 @@
-import OpenAI from 'openai';
 import { NextResponse } from 'next/server';
+import { callOmniChatCompletion } from '@/lib/aiService';
 import { assertSameOriginMutation, sanitizePromptField } from '@/lib/serverSecurity';
 import { checkRateLimit, getClientIp } from '@/lib/rateLimit';
 import { handleApiError, requireAuth } from '@/lib/authServer';
-
-const omniClient = new OpenAI({
-  baseURL: process.env.OMNI_BASE_URL || 'http://localhost:20128/v1',
-  apiKey: process.env.OMNI_API_KEY || 'not-needed',
-});
 
 export async function POST(req: Request) {
   try {
@@ -34,18 +29,26 @@ export async function POST(req: Request) {
       return NextResponse.json({ success: false, error: 'Pesan tidak boleh kosong.' }, { status: 400 });
     }
 
-    const completion = await omniClient.chat.completions.create({
-      model: 'gweb/gemini-3.7-flash',
+    const { content, modelUsed } = await callOmniChatCompletion({
       messages: [{ role: 'user', content: message }],
     });
 
-    const reply = completion.choices[0]?.message?.content || '';
-    return NextResponse.json({ success: true, reply });
-  } catch (error: any) {
-    if (error?.status === 401 || error?.status === 402 || error?.status === 403 || error?.status === 400) {
+    return NextResponse.json({
+      success: true,
+      modelUsed,
+      reply: content,
+    });
+  } catch (error: unknown) {
+    const errWithStatus = error as { status?: number; message?: string };
+    if (
+      errWithStatus?.status === 401 ||
+      errWithStatus?.status === 402 ||
+      errWithStatus?.status === 403 ||
+      errWithStatus?.status === 400
+    ) {
       return handleApiError(error);
     }
-    console.error('OmniRoute Error:', error?.message || error);
+    console.error('OmniRoute Error:', errWithStatus?.message || error);
     return NextResponse.json(
       {
         success: false,

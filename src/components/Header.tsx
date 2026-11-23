@@ -184,9 +184,9 @@ export default function Header({
               className="w-10 h-10 sm:w-12 sm:h-12 rounded-2xl overflow-hidden bg-white border border-slate-200 flex items-center justify-center shadow-md shrink-0"
             >
               <img
-                src="/logo.jpg"
-                alt="Logo Scout Team"
-                className="w-full h-full object-contain"
+                src={mode === 'dark' ? '/app_logo.jpg' : '/logo.jpg'}
+                alt="Logo ScoutFN"
+                className="w-full h-full object-cover"
               />
             </a>
             <div className="min-w-0 flex-1">

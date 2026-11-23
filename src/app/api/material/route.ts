@@ -1,5 +1,10 @@
 import { NextResponse } from 'next/server';
-import { generateWithAI } from '@/lib/aiService';
+import { extractCleanJsonText, generateWithAI } from '@/lib/aiService';
+import {
+  commitAiCreditLog,
+  refundAiCredit,
+  reserveAiCredit,
+} from '@/lib/aiCredits';
 import { normalizeAiMaterial } from '@/lib/normalizeMaterial';
 import { assertSameOriginMutation, sanitizePromptField } from '@/lib/serverSecurity';
 import { checkRateLimit, getClientIp } from '@/lib/rateLimit';
@@ -14,9 +19,10 @@ export async function POST(request: Request) {
       requireActiveSubscription: true,
       requireAiFeature: true,
     });
+    const schoolId = ctx.school!.id;
 
     const ip = getClientIp(request);
-    const limit = checkRateLimit(`ai:material:${ctx.school!.id}:${ip}`, 15, 10 * 60 * 1000);
+    const limit = checkRateLimit(`ai:material:${schoolId}:${ip}`, 15, 10 * 60 * 1000);
     if (!limit.allowed) {
       return NextResponse.json(
         { success: false, error: 'Batas generate AI sementara tercapai. Coba beberapa menit lagi.' },
@@ -30,7 +36,24 @@ export async function POST(request: Request) {
     const duration = sanitizePromptField(body?.duration, 60) || '2 Jam';
 
     if (!topic) {
-      return NextResponse.json({ success: false, error: 'Topik latihan wajib diisi' }, { status: 400 });
+      return NextResponse.json(
+        { success: false, error: 'Topik latihan wajib diisi' },
+        { status: 400 }
+      );
+    }
+
+    // 1. Atomic Reserve Kuota AI Sekolah (Prioritas: ai_plan_credits -> ai_topup_credits)
+    const reservation = await reserveAiCredit(schoolId);
+    if (!reservation.success) {
+      return NextResponse.json(
+        {
+          success: false,
+          code: 'INSUFFICIENT_AI_CREDITS',
+          error:
+            'Kuota AI sekolah Anda telah habis (Paket: 0 | Token: 0). Silakan beli Token AI tambahan atau perpanjang paket langganan.',
+        },
+        { status: 403 }
+      );
     }
 
     const prompt = `Bertindaklah sebagai Pembina Pramuka Ahli dan Pelatih Pembina Mahir.
@@ -53,31 +76,58 @@ export async function POST(request: Request) {
       ]
     }`;
 
-    const { rawTextResult, providerUsed } = await generateWithAI(prompt);
+    try {
+      // 2. Panggil AI & validasi hasil JSON tidak kosong / rusak
+      const { rawTextResult, providerUsed } = await generateWithAI(prompt);
+      const cleanJsonText = extractCleanJsonText(rawTextResult);
+      const parsedData = normalizeAiMaterial(JSON.parse(cleanJsonText));
 
-    const cleanJsonText = rawTextResult
-      .replace(/```json/g, '')
-      .replace(/```/g, '')
-      .trim();
+      if (!parsedData.title || !parsedData.description) {
+        throw new Error(
+          'Respons AI tidak lengkap (judul/deskripsi kosong). Silakan coba generate ulang.'
+        );
+      }
 
-    const parsedData = normalizeAiMaterial(JSON.parse(cleanJsonText));
+      // 3. Sukses -> Catat pemakaian ke ai_credit_logs & kembalikan sisa kuota terbaru
+      const credits = await commitAiCreditLog(
+        schoolId,
+        ctx.user.id,
+        reservation.source,
+        'generate_materi'
+      );
 
-    if (!parsedData.title || !parsedData.description) {
-      throw new Error('Respons AI tidak lengkap (judul/deskripsi kosong). Silakan coba generate ulang.');
+      return NextResponse.json({
+        success: true,
+        providerUsed,
+        creditSource: reservation.source,
+        credits,
+        data: parsedData,
+      });
+    } catch (aiErr: unknown) {
+      // 4. Gagal / Error / Output kosong -> Auto-Refund +1 ke kantong asal sekolah
+      await refundAiCredit(schoolId, reservation.source).catch((refundErr) => {
+        console.error('[AI Credits] Gagal melakukan refund kuota AI:', refundErr);
+      });
+      throw aiErr;
     }
-
-    return NextResponse.json({
-      success: true,
-      providerUsed,
-      data: parsedData,
-    });
-  } catch (error: any) {
-    if (error?.status === 401 || error?.status === 402 || error?.status === 403 || error?.status === 400) {
+  } catch (error: unknown) {
+    const errWithStatus = error as { status?: number; message?: string };
+    if (
+      errWithStatus?.status === 401 ||
+      errWithStatus?.status === 402 ||
+      errWithStatus?.status === 403 ||
+      errWithStatus?.status === 400
+    ) {
       return handleApiError(error);
     }
-    console.error('Error AI Generation:', error);
+    console.error('Error AI Generation (OmniRoute):', error);
     return NextResponse.json(
-      { success: false, error: 'Gagal men-generate materi dengan AI. Silakan coba lagi.' },
+      {
+        success: false,
+        error:
+          errWithStatus?.message ||
+          'Gagal men-generate materi dengan AI. Kuota AI sekolah Anda tidak dipotong.',
+      },
       { status: 500 }
     );
   }

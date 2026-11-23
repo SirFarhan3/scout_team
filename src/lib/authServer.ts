@@ -11,6 +11,7 @@ import {
 import { signSessionToken } from '@/lib/sessionToken';
 import { CsrfError } from '@/lib/serverSecurity';
 import { getRemainingDays, isSchoolSubscriptionActive } from '@/lib/plans';
+import { SUBSCRIPTION_PLANS, normalizePlanCode } from '@/lib/subscription-plans';
 import { isAllowedRole, AllowedRole } from '@/lib/sanitize';
 import type { SchoolDTO } from '@/types/school';
 
@@ -57,6 +58,14 @@ export function toSchoolDTO(row: Record<string, unknown>): SchoolDTO {
       typeof row.subscription_expires_at === 'string' ? row.subscription_expires_at : null,
   });
   const expiresAt = String(row.subscription_expires_at || '');
+  const normalizedPlan = normalizePlanCode(row.subscription_plan);
+  const planConfig = SUBSCRIPTION_PLANS[normalizedPlan];
+  const aiPlanCredits = Math.max(
+    0,
+    Number(row.ai_plan_credits ?? planConfig.aiPlanCredits) || 0
+  );
+  const aiTopupCredits = Math.max(0, Number(row.ai_topup_credits ?? 0) || 0);
+
   return {
     id: String(row.id),
     name: String(row.name),
@@ -68,15 +77,18 @@ export function toSchoolDTO(row: Record<string, unknown>): SchoolDTO {
     contact_name: row.contact_name ? String(row.contact_name) : null,
     contact_phone: row.contact_phone ? String(row.contact_phone) : null,
     contact_email: row.contact_email ? String(row.contact_email) : null,
-    subscription_plan: row.subscription_plan as SchoolDTO['subscription_plan'],
+    subscription_plan: normalizedPlan,
     subscription_status: row.subscription_status as SchoolDTO['subscription_status'],
     subscription_started_at: String(row.subscription_started_at || ''),
     subscription_expires_at: expiresAt,
     subscription_active: active,
     remaining_days: getRemainingDays(expiresAt),
-    max_students: Number(row.max_students) || 40,
-    max_users: Math.max(5, Number(row.max_users) || 5),
+    max_students: Number(row.max_students) || planConfig.maxStudents,
+    max_users: Number(row.max_users) || planConfig.maxUsers,
     ai_features_enabled: toBool(row.ai_features_enabled),
+    ai_plan_credits: aiPlanCredits,
+    ai_topup_credits: aiTopupCredits,
+    ai_total_credits: aiPlanCredits + aiTopupCredits,
     telegram_chat_id: row.telegram_chat_id ? Number(row.telegram_chat_id) : null,
     created_at: row.created_at ? String(row.created_at) : undefined,
   };

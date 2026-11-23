@@ -1,7 +1,7 @@
 import type { AllowedRole } from '@/lib/sanitize';
 
 export const SESSION_COOKIE_NAME = 'scout_session';
-export const SESSION_TTL_SECONDS = 60 * 60 * 24 * 7; // 7 hari
+export const SESSION_TTL_SECONDS = 60 * 60 * 24; // 1 hari (24 jam)
 
 export interface SignedSessionPayload {
   sid: string; // session row id di DB user_sessions

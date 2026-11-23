@@ -1,99 +1,184 @@
-import { GoogleGenAI } from '@google/genai';
+export function getOmniAiConfig() {
+  const rawBaseUrl = (
+    process.env.AI_BASE_URL ||
+    process.env.OMNI_BASE_URL ||
+    'http://127.0.0.1:20128/v1'
+  )
+    .trim()
+    .replace(/^['"]|['"]$/g, '')
+    .replace(/\/+$/, '');
 
-const gemini = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+  // Paksa localhost -> 127.0.0.1 untuk mencegah error "fetch failed" akibat resolusi IPv6 (::1) di Node.js
+  const baseURL = rawBaseUrl.replace(/\/\/localhost(?=[:/]|$)/i, '//127.0.0.1');
 
-// // 1. Fungsi Panggil Groq (Dengan Instruksi JSON yang Lebih Tegas)
-// async function callGroq(prompt: string) {
-//   const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-//     method: 'POST',
-//     headers: {
-//       'Authorization': `Bearer ${process.env.GROQ_API_KEY}`,
-//       'Content-Type': 'application/json',
-//     },
-//     body: JSON.stringify({
-//       model: 'openai/gpt-oss-20b',
-//       messages: [
-//         { 
-//           role: 'system', 
-//           content: 'Anda adalah generator JSON murni. JANGAN BERIKAN TEKS ATAU PENJELASAN APA PUN di luar format JSON. Output Anda harus valid murni berupa struktur JSON (Array [...] atau Object {...}).' 
-//         },
-//         { role: 'user', content: prompt }
-//       ],
-//       response_format: { type: 'json_object' },
-//       temperature: 0.3, // Diturunkan sedikit agar model lebih disiplin mengikuti format
-//     }),
-//   });
+  const apiKey = (
+    process.env.AI_API_KEY ||
+    process.env.OMNI_API_KEY ||
+    ''
+  )
+    .trim()
+    .replace(/^['"]|['"]$/g, '');
 
-//   if (!response.ok) {
-//     const errorData = await response.json();
-//     throw new Error(`Groq Limit/Error: ${errorData.error?.message || response.status}`);
-//   }
+  const rawModel = (
+    process.env.AI_MODEL ||
+    process.env.OMNI_MODEL ||
+    'ai-gratis'
+  )
+    .trim()
+    .replace(/^['"]|['"]$/g, '');
 
-//   const data = await response.json();
-//   let content = data.choices[0].message.content;
+  // Tolak model bawaan "auto/*" atau "ai-free" dan gunakan combo custom "ai-gratis"
+  const model =
+    !rawModel || /^auto\//i.test(rawModel) || rawModel === 'ai-free'
+      ? 'ai-gratis'
+      : rawModel;
 
-//   // Bersihkan jaga-jaga kalau masih ada pembungkus markdown backticks
-//   content = content.trim();
-//   if (content.startsWith('```json')) {
-//     content = content.replace(/^```json/, '').replace(/```$/, '').trim();
-//   } else if (content.startsWith('```')) {
-//     content = content.replace(/^```/, '').replace(/```$/, '').trim();
-//   }
-
-//   return content;
-// }
-
-// 2. Fungsi Panggil Model Gemini Khusus Teks
-async function callGeminiModel(prompt: string, modelName: string) {
-  const response = await gemini.models.generateContent({
-    model: modelName,
-    contents: prompt,
-    config: {
-      responseMimeType: "application/json",
-    }
-  });
-
-  return response?.text || '';
+  return { baseURL, apiKey, model };
 }
 
-// 3. Rantai Fallback Berlapis (Groq ➡️ Sederetan Model Teks Gemini Terbaik)
-export async function generateWithAI(prompt: string) {
-  let rawTextResult = '';
-  let providerUsed = '';
+/**
+ * Membersihkan respons AI dari tag <think>...</think> atau pembungkus markdown ```json ... ```
+ * agar siap di-parse oleh JSON.parse().
+ */
+export function extractCleanJsonText(rawText: string): string {
+  let cleaned = rawText
+    .replace(/<think>[\s\S]*?<\/think>/gi, '')
+    .replace(/```json/gi, '')
+    .replace(/```/g, '')
+    .trim();
 
-  const geminiTextFallbackChain = [
-    // 'models/gemini-2.5-flash',
-    // 'models/gemini-3.8-flash',
-    'models/gemini-3.7-flash',
-    'models/gemini-3.6-flash',
-    'models/gemini-3.5-flash',
-    'models/gemini-3-flash-preview',
-    'models/gemini-3.1-flash-lite',
-    'models/gemini-flash-latest',
-    'models/gemini-2.5-pro',
-  ];
+  const firstBrace = cleaned.indexOf('{');
+  const firstBracket = cleaned.indexOf('[');
+  let startIdx = -1;
+  let endChar = '';
 
-//   // LANGKAH 1: Coba Groq dulu
-//   try {
-//     console.log('Mencoba via Groq (gpt-oss-20b)...');
-//     rawTextResult = await callGroq(prompt);
-//     providerUsed = 'Groq (GPT OSS 20B)';
-//     return { rawTextResult, providerUsed };
-//   } catch (groqErr: any) {
-//     console.warn(`Groq gagal: ${groqErr.message}. Memulai rantai fallback Gemini...`);
-//   }
+  if (firstBrace !== -1 && (firstBracket === -1 || firstBrace < firstBracket)) {
+    startIdx = firstBrace;
+    endChar = '}';
+  } else if (firstBracket !== -1) {
+    startIdx = firstBracket;
+    endChar = ']';
+  }
 
-  // LANGKAH 2: Iterasi mencoba satu per satu model teks Gemini
-  for (const modelName of geminiTextFallbackChain) {
-    try {
-      console.log(`Mencoba via ${modelName}...`);
-      rawTextResult = await callGeminiModel(prompt, modelName);
-      providerUsed = `Gemini (${modelName})`;
-      return { rawTextResult, providerUsed };
-    } catch (modelErr: any) {
-      console.warn(`${modelName} gagal/limit: ${modelErr.message}. Melanjutkan ke model berikutnya...`);
+  if (startIdx !== -1 && endChar) {
+    const endIdx = cleaned.lastIndexOf(endChar);
+    if (endIdx > startIdx) {
+      cleaned = cleaned.slice(startIdx, endIdx + 1);
     }
   }
 
-  throw new Error('Semua jalur AI teks (Groq dan seluruh cadangan model Gemini) sedang mengalami limit/gangguan. Silakan coba beberapa saat lagi.');
+  return cleaned.trim();
+}
+
+export async function callOmniChatCompletion(params: {
+  messages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }>;
+  temperature?: number;
+}): Promise<{ content: string; modelUsed: string }> {
+  const { baseURL, apiKey, model } = getOmniAiConfig();
+  const endpoint = `${baseURL}/chat/completions`;
+
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+  };
+  if (apiKey) {
+    headers.Authorization = `Bearer ${apiKey}`;
+  }
+
+  try {
+    const res = await fetch(endpoint, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({
+        model,
+        messages: params.messages,
+        temperature: params.temperature ?? 0.3,
+      }),
+    });
+
+    const data = (await res.json().catch(() => null)) as {
+      model?: string;
+      choices?: Array<{ message?: { content?: string } }>;
+      error?: { message?: string } | string;
+    } | null;
+
+    if (!res.ok) {
+      const errMsg =
+        typeof data?.error === 'string'
+          ? data.error
+          : data?.error?.message || `HTTP ${res.status}`;
+      console.error('[OmniRoute HTTP Error]', {
+        endpoint,
+        model,
+        status: res.status,
+        error: errMsg,
+      });
+      throw new Error(`OmniRoute (${model}) gagal [${res.status}]: ${errMsg}`);
+    }
+
+    const content = data?.choices?.[0]?.message?.content || '';
+    if (!content.trim()) {
+      throw new Error(`Respons OmniRoute untuk combo "${model}" kosong.`);
+    }
+
+    return {
+      content,
+      modelUsed: data?.model || model,
+    };
+  } catch (err: unknown) {
+    const errorObj = err as Error & { cause?: unknown };
+    const msg = errorObj?.message || String(err);
+    const causeDetail =
+      errorObj?.cause instanceof Error
+        ? `${errorObj.cause.message} (${(errorObj.cause as Error & { code?: string }).code || 'NO_CODE'})`
+        : errorObj?.cause
+        ? JSON.stringify(errorObj.cause)
+        : undefined;
+
+    console.error('[OmniRoute Fetch Error]', {
+      endpoint,
+      model,
+      hasApiKey: Boolean(apiKey),
+      message: msg,
+      cause: errorObj?.cause || null,
+    });
+
+    throw new Error(
+      `Gagal memanggil OmniRoute (${model} @ ${endpoint}): ${msg}${
+        causeDetail ? ` | Cause: ${causeDetail}` : ''
+      }`
+    );
+  }
+}
+
+/**
+ * Generator JSON utama untuk Materi & Program Kerja via OmniRoute (combo: "ai-gratis").
+ */
+export async function generateWithAI(prompt: string): Promise<{
+  rawTextResult: string;
+  providerUsed: string;
+}> {
+  const { content, modelUsed } = await callOmniChatCompletion({
+    messages: [
+      {
+        role: 'system',
+        content:
+          'Anda adalah generator JSON murni untuk sistem manajemen kepramukaan. JANGAN berikan teks pengantar, penjelasan, atau markdown di luar format JSON. Output Anda harus 100% valid JSON (Object {...} atau Array [...]).',
+      },
+      {
+        role: 'user',
+        content: prompt,
+      },
+    ],
+    temperature: 0.3,
+  });
+
+  const rawTextResult = extractCleanJsonText(content);
+  if (!rawTextResult) {
+    throw new Error('Respons dari OmniRoute kosong.');
+  }
+
+  return {
+    rawTextResult,
+    providerUsed: `OmniRoute (${modelUsed})`,
+  };
 }

@@ -1,6 +1,6 @@
 import { AllowedRole } from '@/lib/sanitize';
 import { apiFetch, clearJwtToken, getJwtToken, setJwtToken } from '@/lib/apiClient';
-import type { SchoolDTO, SchoolUsageStats } from '@/types/school';
+import type { SchoolDTO, SchoolUsageStats, SubscriptionPlanCode } from '@/types/school';
 
 export interface UserSessionData {
   id: string;
@@ -21,7 +21,7 @@ export interface RegisterSchoolInput {
   fullName: string;
   username: string;
   password: string;
-  plan?: 'trial' | 'basic' | 'pro' | 'enterprise';
+  plan?: SubscriptionPlanCode;
   billingCycle?: 'monthly' | 'yearly';
 }
 

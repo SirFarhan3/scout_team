@@ -1,7 +1,16 @@
-export type SubscriptionPlanCode = 'trial' | 'basic' | 'pro' | 'enterprise';
-export type PaidPlanCode = 'basic' | 'pro' | 'enterprise';
-export type SubscriptionStatus = 'pending' | 'trial' | 'active' | 'expired' | 'suspended';
-export type BillingCycle = 'monthly' | 'yearly';
+import type {
+  BillingCycle,
+  PaidPlanCode,
+  SubscriptionPlanCode,
+  SubscriptionStatus,
+} from '@/lib/subscription-plans';
+
+export type {
+  BillingCycle,
+  PaidPlanCode,
+  SubscriptionPlanCode,
+  SubscriptionStatus,
+};
 
 export interface SchoolDTO {
   id: string;
@@ -23,6 +32,9 @@ export interface SchoolDTO {
   max_students: number;
   max_users: number;
   ai_features_enabled: boolean;
+  ai_plan_credits: number;
+  ai_topup_credits: number;
+  ai_total_credits: number;
   telegram_chat_id?: number | null;
   created_at?: string;
 }

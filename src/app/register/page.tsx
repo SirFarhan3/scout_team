@@ -3,8 +3,8 @@
 import { useState } from 'react';
 import { SunOutlined, MoonOutlined, CheckCircleFilled } from '@ant-design/icons';
 import { authService } from '@/lib/auth';
-import { PLAN_CATALOG, formatIdr } from '@/lib/plans';
-import type { SubscriptionPlanCode, BillingCycle } from '@/types/school';
+import { formatIdr } from '@/lib/plans';
+import { SUBSCRIPTION_PLANS, type SubscriptionPlanCode } from '@/lib/subscription-plans';
 import { useThemeMode } from '@/components/ThemeProvider';
 import PasswordInput from '@/components/PasswordInput';
 
@@ -20,7 +20,6 @@ export default function RegisterSchoolPage() {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [selectedPlan, setSelectedPlan] = useState<SubscriptionPlanCode>('trial');
-  const [billingCycle, setBillingCycle] = useState<BillingCycle>('monthly');
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
 
@@ -40,7 +39,7 @@ export default function RegisterSchoolPage() {
         username,
         password,
         plan: selectedPlan,
-        billingCycle,
+        billingCycle: selectedPlan === 'pro' ? 'yearly' : 'monthly',
       });
 
       if (result.user.school?.subscription_active) {
@@ -55,7 +54,7 @@ export default function RegisterSchoolPage() {
     }
   };
 
-  const plans = Object.values(PLAN_CATALOG);
+  const plans = Object.values(SUBSCRIPTION_PLANS);
 
   return (
     <div className="min-h-screen bg-slate-100 py-8 px-4 flex items-center justify-center font-sans">
@@ -79,7 +78,14 @@ export default function RegisterSchoolPage() {
           )}
         </button>
 
-        <div className="text-center space-y-1.5 pr-12 sm:pr-0">
+        <div className="text-center space-y-2 pr-12 sm:pr-0">
+          <div className="h-14 w-44 rounded-2xl overflow-hidden bg-white border border-slate-200 flex items-center justify-center mx-auto shadow-sm px-2">
+            <img
+              src="/header_logo.jpg"
+              alt="Logo ScoutFN"
+              className="w-full h-full object-contain"
+            />
+          </div>
           <h1 className="text-2xl font-black tracking-tight text-slate-900">
             🏫 Pendaftaran Sekolah Baru
           </h1>
@@ -101,75 +107,52 @@ export default function RegisterSchoolPage() {
               <label className="text-xs font-extrabold text-slate-700 uppercase">
                 1. Pilih Paket Langganan Sekolah
               </label>
-              {selectedPlan !== 'trial' && (
-                <div className="inline-flex bg-slate-100 p-1 rounded-xl text-xs font-bold">
-                  <button
-                    type="button"
-                    onClick={() => setBillingCycle('monthly')}
-                    className={`px-3 py-1 rounded-lg transition ${
-                      billingCycle === 'monthly'
-                        ? 'bg-white text-indigo-600 shadow-sm'
-                        : 'text-slate-500'
-                    }`}
-                  >
-                    Bulanan
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setBillingCycle('yearly')}
-                    className={`px-3 py-1 rounded-lg transition ${
-                      billingCycle === 'yearly'
-                        ? 'bg-white text-indigo-600 shadow-sm'
-                        : 'text-slate-500'
-                    }`}
-                  >
-                    Tahunan (Hemat 2 Bulan)
-                  </button>
-                </div>
-              )}
+              <span className="text-[11px] font-semibold text-indigo-600">
+                ✨ Trial 7 Hari langsung aktif otomatis saat registrasi
+              </span>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               {plans.map((plan) => {
                 const isSelected = selectedPlan === plan.code;
-                const price =
-                  plan.code === 'trial'
-                    ? 0
-                    : billingCycle === 'yearly'
-                    ? plan.yearlyPriceIdr
-                    : plan.monthlyPriceIdr;
 
                 return (
                   <button
                     key={plan.code}
                     type="button"
                     onClick={() => setSelectedPlan(plan.code)}
-                    className={`text-left p-4 rounded-2xl border transition flex flex-col justify-between gap-2 ${
+                    className={`relative text-left p-4 rounded-2xl border transition flex flex-col justify-between gap-2.5 cursor-pointer ${
                       isSelected
                         ? 'border-indigo-600 bg-indigo-50/70 ring-2 ring-indigo-500/30'
                         : 'border-slate-200 bg-slate-50/60 hover:bg-slate-50'
                     }`}
                   >
                     <div>
+                      {plan.isPopular && (
+                        <div className="mb-1.5">
+                          <span className="inline-flex px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-amber-400 text-slate-950">
+                            ⭐ Paket Andalan • Most Popular
+                          </span>
+                        </div>
+                      )}
                       <div className="flex items-center justify-between">
                         <span className="text-xs font-black uppercase text-indigo-700">
-                          {plan.code}
+                          {plan.label} ({plan.durationLabel})
                         </span>
                         {isSelected && <CheckCircleFilled className="text-indigo-600" />}
                       </div>
-                      <div className="text-sm font-black text-slate-900 mt-1">
-                        {price === 0 ? 'Gratis 14 Hari' : formatIdr(price)}
+                      <div className="text-base font-black text-slate-900 mt-1">
+                        {plan.price === 0 ? 'Gratis (Rp 0)' : formatIdr(plan.price)}
                       </div>
-                      <div className="text-[10px] text-slate-500">
-                        {plan.code === 'trial'
-                          ? 'Langsung aktif'
-                          : billingCycle === 'yearly'
-                          ? 'per tahun'
-                          : 'per bulan'}
+                      <div className="text-[10px] text-slate-500 font-semibold">
+                        {plan.priceSubtext}
                       </div>
                     </div>
-                    <div className="text-[11px] text-slate-600 font-semibold pt-2 border-t border-slate-200/70">
-                      Maks {plan.maxStudents} siswa • {plan.maxUsers} akun
+                    <div className="text-[11px] text-slate-600 font-semibold pt-2 border-t border-slate-200/70 space-y-0.5">
+                      <div>👥 Maks {plan.maxStudents} peserta • {plan.maxUsers} admin/pembina</div>
+                      <div className="text-indigo-700 font-bold">
+                        ✨ Kuota AI: {plan.aiPlanCredits}x generate
+                      </div>
                     </div>
                   </button>
                 );
@@ -305,7 +288,7 @@ export default function RegisterSchoolPage() {
             {loading
               ? 'Mendaftarkan Sekolah...'
               : selectedPlan === 'trial'
-              ? '🚀 Daftar & Mulai Uji Coba 14 Hari'
+              ? `🚀 Daftar & Mulai Uji Coba ${SUBSCRIPTION_PLANS.trial.durationDays} Hari`
               : '💳 Daftar & Lanjutkan ke Pembayaran / Aktivasi'}
           </button>
         </form>

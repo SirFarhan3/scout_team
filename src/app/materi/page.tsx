@@ -49,9 +49,11 @@ export default function MateriPage() {
   // AI Generator State
   const [showAiModal, setShowAiModal] = useState(false);
   const [aiTopic, setAiTopic] = useState('');
-  const [aiLevel, setAiLevel] = useState('Penggalang Ramu');
+  const [aiLevel, setAiLevel] = useState('Penggalang');
   const [aiDuration, setAiDuration] = useState('90 Menit');
   const [isGenerating, setIsGenerating] = useState(false);
+  const [aiPlanCredits, setAiPlanCredits] = useState<number>(2);
+  const [aiTopupCredits, setAiTopupCredits] = useState<number>(0);
 
   // Load user & daftar kategori awal
   useEffect(() => {
@@ -65,6 +67,10 @@ export default function MateriPage() {
         return;
       }
       setCurrentUser(user);
+      if (user.school) {
+        setAiPlanCredits(Math.max(0, Number(user.school.ai_plan_credits ?? 2) || 0));
+        setAiTopupCredits(Math.max(0, Number(user.school.ai_topup_credits ?? 0) || 0));
+      }
       materialService
         .getMaterialCategories()
         .then((cats) => setCategories(cats))
@@ -178,6 +184,11 @@ export default function MateriPage() {
       const result = await apiFetch<{
         success: boolean;
         error?: string;
+        credits?: {
+          ai_plan_credits: number;
+          ai_topup_credits: number;
+          ai_total_credits: number;
+        };
         data: {
           title?: string;
           category?: string;
@@ -191,6 +202,18 @@ export default function MateriPage() {
           level: aiLevel,
           duration: aiDuration,
         }),
+      });
+
+      if (result.credits) {
+        setAiPlanCredits(result.credits.ai_plan_credits);
+        setAiTopupCredits(result.credits.ai_topup_credits);
+      }
+      // Sinkronkan juga cache user di latar belakang
+      authService.getCurrentUser().then((u) => {
+        if (u?.school) {
+          setAiPlanCredits(u.school.ai_plan_credits);
+          setAiTopupCredits(u.school.ai_topup_credits);
+        }
       });
 
       setTitle(result.data.title || '');
@@ -284,10 +307,19 @@ export default function MateriPage() {
         <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100 space-y-4">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
                 <h2 className="text-base font-extrabold text-slate-900">Daftar Materi</h2>
                 <span className="text-[11px] font-bold bg-indigo-50 text-indigo-700 px-2.5 py-0.5 rounded-full border border-indigo-100">
                   Total {totalItems} Materi
+                </span>
+                <span
+                  className={`text-[11px] font-bold px-2.5 py-0.5 rounded-full border ${
+                    aiPlanCredits + aiTopupCredits > 0
+                      ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                      : 'bg-rose-50 text-rose-700 border-rose-200'
+                  }`}
+                >
+                  🤖 Sisa Kuota Generate AI: {aiPlanCredits + aiTopupCredits}
                 </span>
               </div>
               <p className="text-xs text-slate-500">
@@ -424,6 +456,8 @@ export default function MateriPage() {
           aiLevel={aiLevel}
           aiDuration={aiDuration}
           isGenerating={isGenerating}
+          planCredits={aiPlanCredits}
+          topupCredits={aiTopupCredits}
           onClose={() => setShowAiModal(false)}
           onTopicChange={setAiTopic}
           onLevelChange={setAiLevel}

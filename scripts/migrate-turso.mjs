@@ -56,6 +56,46 @@ async function main() {
     } catch {
       // Kolom deleted_at sudah ada
     }
+    try {
+      await client.execute(
+        'ALTER TABLE schools ADD COLUMN ai_plan_credits INTEGER NOT NULL DEFAULT 2 CHECK (ai_plan_credits >= 0)'
+      );
+    } catch {
+      // Kolom ai_plan_credits sudah ada
+    }
+    try {
+      await client.execute(
+        'ALTER TABLE schools ADD COLUMN ai_topup_credits INTEGER NOT NULL DEFAULT 0 CHECK (ai_topup_credits >= 0)'
+      );
+    } catch {
+      // Kolom ai_topup_credits sudah ada
+    }
+    try {
+      await client.execute(`
+        UPDATE schools
+        SET
+          subscription_plan = CASE LOWER(subscription_plan)
+            WHEN 'enterprise' THEN 'pro'
+            WHEN 'pro' THEN 'pro'
+            WHEN 'basic' THEN 'basic'
+            ELSE 'trial'
+          END,
+          max_students = CASE LOWER(subscription_plan)
+            WHEN 'pro' THEN 500
+            WHEN 'enterprise' THEN 500
+            WHEN 'basic' THEN 100
+            ELSE 40
+          END,
+          max_users = CASE LOWER(subscription_plan)
+            WHEN 'pro' THEN 10
+            WHEN 'enterprise' THEN 10
+            WHEN 'basic' THEN 7
+            ELSE 5
+          END
+      `);
+    } catch {
+      // Abaikan jika gagal backfill
+    }
     await client.execute('CREATE INDEX IF NOT EXISTS idx_schools_deleted_at ON schools (deleted_at)');
     try {
       await client.execute(

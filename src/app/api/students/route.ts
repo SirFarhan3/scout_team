@@ -84,8 +84,15 @@ export async function POST(request: Request) {
     const currentCount = Number(countRes?.cnt) || 0;
 
     if (currentCount >= ctx.school!.max_students) {
-      throw new ValidationError(
-        `Kuota anggota paket Anda (${ctx.school!.max_students} siswa) sudah penuh. Upgrade paket di menu Langganan.`
+      const limitMsg = `Batas maksimal peserta untuk paket Anda (${ctx.school!.max_students} peserta) telah tercapai. Silakan upgrade paket.`;
+      return NextResponse.json(
+        {
+          success: false,
+          code: 'MAX_STUDENTS_REACHED',
+          error: limitMsg,
+          message: limitMsg,
+        },
+        { status: 403 }
       );
     }
 

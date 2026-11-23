@@ -15,12 +15,12 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Scout Management Portal",
-  description: "Platform SaaS Manajemen Kepramukaan, Presensi QR & Laporan Gugusdepan Sekolah",
+  title: "ScoutFN — Scout Management Portal",
+  description: "Platform SaaS Manajemen Kepramukaan, Presensi QR, Translasi Sandi & Laporan Gugusdepan Sekolah",
   icons: {
-    icon: "/logo.jpg",
-    shortcut: "/logo.jpg",
-    apple: "/logo.jpg",
+    icon: "/app_logo.jpg",
+    shortcut: "/app_logo.jpg",
+    apple: "/app_logo.jpg",
   },
 };
 

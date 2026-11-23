@@ -17,6 +17,7 @@ import PasswordInput from '@/components/PasswordInput';
 import { authService } from '@/lib/auth';
 import { superadminService, SuperadminSchoolItem } from '@/services/superadminService';
 import { formatIdr } from '@/lib/plans';
+import { SUBSCRIPTION_PLANS } from '@/lib/subscription-plans';
 import type {
   InvoiceDTO,
   LicenseKeyDTO,
@@ -55,6 +56,7 @@ export default function SuperadminPage() {
   const [editPlan, setEditPlan] = useState<SubscriptionPlanCode>('pro');
   const [editStatus, setEditStatus] = useState<SubscriptionStatus>('active');
   const [extendDays, setExtendDays] = useState<number>(0);
+  const [topupAiCredits, setTopupAiCredits] = useState<number>(0);
   const [savingSchool, setSavingSchool] = useState(false);
 
   // Form Generate License Key
@@ -158,10 +160,12 @@ export default function SuperadminPage() {
         subscription_plan: editPlan,
         subscription_status: editStatus,
         ...(extendDays > 0 ? { extendDays } : {}),
+        ...(topupAiCredits > 0 ? { topupAiCredits } : {}),
       });
       message.success('Data sekolah, admin, dan langganan berhasil diperbarui!');
       setEditingSchool(null);
       setEditAdminPassword('');
+      setTopupAiCredits(0);
       await loadData();
     } catch (err: any) {
       message.error(err.message || 'Gagal memperbarui sekolah.');
@@ -223,16 +227,24 @@ export default function SuperadminPage() {
     }
   };
 
-  const PLAN_DEFAULT_DAYS: Record<SubscriptionPlanCode, number> = {
-    trial: 7,
-    basic: 180,
-    pro: 365,
-    enterprise: 365,
-  };
-
   const handlePlanChange = (selectedPlan: SubscriptionPlanCode) => {
     setPlan(selectedPlan);
-    setDurationDays(PLAN_DEFAULT_DAYS[selectedPlan]);
+    setDurationDays(SUBSCRIPTION_PLANS[selectedPlan].durationDays);
+  };
+
+  const handleEditPlanChange = (selectedPlan: SubscriptionPlanCode) => {
+    setEditPlan(selectedPlan);
+    setExtendDays(SUBSCRIPTION_PLANS[selectedPlan].durationDays);
+    if (selectedPlan === 'trial') {
+      setEditStatus('trial');
+    } else if (editStatus === 'trial' || editStatus === 'pending' || editStatus === 'expired') {
+      setEditStatus('active');
+    }
+  };
+
+  const handleKeyPlanChange = (selectedPlan: PaidPlanCode) => {
+    setKeyPlan(selectedPlan);
+    setKeyDays(SUBSCRIPTION_PLANS[selectedPlan].durationDays);
   };
 
   const pendingInvoicesCount = invoices.filter((i) => i.status === 'pending').length;
@@ -283,12 +295,15 @@ export default function SuperadminPage() {
       title: 'Penggunaan',
       key: 'usage',
       render: (_: any, rec: SuperadminSchoolItem) => (
-        <div className="text-xs text-slate-600">
+        <div className="text-xs text-slate-600 space-y-0.5">
           <div>
             Siswa: <strong>{rec.student_count}</strong>/{rec.max_students}
           </div>
           <div>
             Akun: <strong>{rec.user_count}</strong>/{rec.max_users}
+          </div>
+          <div className="text-[11px] text-indigo-700 font-semibold">
+            AI: <strong>{rec.ai_total_credits ?? 0}</strong> (Paket: {rec.ai_plan_credits ?? 0} | Token: {rec.ai_topup_credits ?? 0})
           </div>
         </div>
       ),
@@ -310,6 +325,7 @@ export default function SuperadminPage() {
               setEditPlan(rec.subscription_plan);
               setEditStatus(rec.subscription_status);
               setExtendDays(0);
+              setTopupAiCredits(0);
             }}
             className="bg-indigo-600 rounded-xl text-xs font-bold"
           >
@@ -581,12 +597,15 @@ export default function SuperadminPage() {
                   <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Paket</label>
                   <select
                     value={keyPlan}
-                    onChange={(e) => setKeyPlan(e.target.value as PaidPlanCode)}
+                    onChange={(e) => handleKeyPlanChange(e.target.value as PaidPlanCode)}
                     className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-xs font-bold"
                   >
-                    <option value="basic">Basic</option>
-                    <option value="pro">Pro</option>
-                    <option value="enterprise">Enterprise</option>
+                    <option value="basic">
+                      Basic — {formatIdr(SUBSCRIPTION_PLANS.basic.price)} ({SUBSCRIPTION_PLANS.basic.durationDays} Hari)
+                    </option>
+                    <option value="pro">
+                      Pro (Most Popular) — {formatIdr(SUBSCRIPTION_PLANS.pro.price)} ({SUBSCRIPTION_PLANS.pro.durationDays} Hari)
+                    </option>
                   </select>
                 </div>
                 <div>
@@ -835,13 +854,18 @@ export default function SuperadminPage() {
               <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Paket</label>
               <select
                 value={editPlan}
-                onChange={(e) => setEditPlan(e.target.value as SubscriptionPlanCode)}
+                onChange={(e) => handleEditPlanChange(e.target.value as SubscriptionPlanCode)}
                 className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold"
               >
-                <option value="trial">Trial</option>
-                <option value="basic">Basic</option>
-                <option value="pro">Pro</option>
-                <option value="enterprise">Enterprise</option>
+                <option value="trial">
+                  Trial — Gratis ({SUBSCRIPTION_PLANS.trial.durationDays} Hari • {SUBSCRIPTION_PLANS.trial.maxStudents} Peserta • {SUBSCRIPTION_PLANS.trial.maxUsers} Akun • {SUBSCRIPTION_PLANS.trial.aiPlanCredits}x AI)
+                </option>
+                <option value="basic">
+                  Basic — {formatIdr(SUBSCRIPTION_PLANS.basic.price)} ({SUBSCRIPTION_PLANS.basic.durationDays} Hari • {SUBSCRIPTION_PLANS.basic.maxStudents} Peserta • {SUBSCRIPTION_PLANS.basic.maxUsers} Akun • {SUBSCRIPTION_PLANS.basic.aiPlanCredits}x AI)
+                </option>
+                <option value="pro">
+                  Pro (Most Popular) — {formatIdr(SUBSCRIPTION_PLANS.pro.price)} ({SUBSCRIPTION_PLANS.pro.durationDays} Hari • {SUBSCRIPTION_PLANS.pro.maxStudents} Peserta • {SUBSCRIPTION_PLANS.pro.maxUsers} Akun • {SUBSCRIPTION_PLANS.pro.aiPlanCredits}x AI)
+                </option>
               </select>
             </div>
             <div>
@@ -858,19 +882,42 @@ export default function SuperadminPage() {
                 <option value="suspended">Suspended</option>
               </select>
             </div>
-            <div>
-              <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">
-                Tambah Masa Aktif (Hari, 0 jika tidak ditambah)
-              </label>
-              <input
-                type="number"
-                min={0}
-                max={3650}
-                value={extendDays}
-                onChange={(e) => setExtendDays(Math.max(0, Number(e.target.value) || 0))}
-                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold"
-              />
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              <div>
+                <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">
+                  Tambah Masa Aktif (Hari, 0 jika tetap)
+                </label>
+                <input
+                  type="number"
+                  min={0}
+                  max={3650}
+                  value={extendDays}
+                  onChange={(e) => setExtendDays(Math.max(0, Number(e.target.value) || 0))}
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold"
+                />
+              </div>
+              <div>
+                <label className="block text-[10px] font-bold text-indigo-600 uppercase mb-1">
+                  🪙 Tambah Token AI Top-Up (+Token)
+                </label>
+                <input
+                  type="number"
+                  min={0}
+                  max={10000}
+                  value={topupAiCredits}
+                  onChange={(e) => setTopupAiCredits(Math.max(0, Number(e.target.value) || 0))}
+                  className="w-full bg-indigo-50/70 border border-indigo-200 rounded-xl px-3 py-2 text-xs font-bold text-indigo-900"
+                />
+              </div>
             </div>
+            {editingSchool && (
+              <div className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-[11px] text-slate-600 flex items-center justify-between">
+                <span>Saldo Kuota AI Sekolah Saat Ini:</span>
+                <span className="font-mono font-bold text-slate-900">
+                  Total {editingSchool.ai_total_credits ?? 0} (Paket: {editingSchool.ai_plan_credits ?? 0} | Token: {editingSchool.ai_topup_credits ?? 0})
+                </span>
+              </div>
+            )}
           </div>
         </Modal>
       </div>

@@ -14,6 +14,7 @@ import PageLoader from '@/components/PageLoader';
 import { authService, UserSessionData } from '@/lib/auth';
 import { billingService } from '@/services/billingService';
 import { formatIdr, PlanDefinition } from '@/lib/plans';
+import { SUBSCRIPTION_PLANS } from '@/lib/subscription-plans';
 import type {
   BillingCycle,
   InvoiceDTO,
@@ -35,9 +36,9 @@ export default function BillingPage() {
   const [licenseCode, setLicenseCode] = useState('');
   const [redeeming, setRedeeming] = useState(false);
 
-  // Form Ajukan Invoice Pembayaran
-  const [selectedPlan, setSelectedPlan] = useState<PaidPlanCode>('basic');
-  const [billingCycle, setBillingCycle] = useState<BillingCycle>('monthly');
+  // Form Ajukan Invoice Pembayaran (Default ke Pro - Paket Andalan)
+  const [selectedPlan, setSelectedPlan] = useState<PaidPlanCode>('pro');
+  const [billingCycle, setBillingCycle] = useState<BillingCycle>('yearly');
   const [paymentReference, setPaymentReference] = useState('');
   const [payerNote, setPayerNote] = useState('');
   const [submittingInvoice, setSubmittingInvoice] = useState(false);
@@ -161,11 +162,14 @@ export default function BillingPage() {
     {
       title: 'Paket',
       key: 'plan',
-      render: (_: unknown, rec: InvoiceDTO) => (
-        <span className="text-xs font-bold uppercase text-indigo-700">
-          {rec.plan_code} ({rec.billing_cycle === 'yearly' ? 'Tahunan' : 'Bulanan'})
-        </span>
-      ),
+      render: (_: unknown, rec: InvoiceDTO) => {
+        const planCfg = SUBSCRIPTION_PLANS[rec.plan_code] || SUBSCRIPTION_PLANS.basic;
+        return (
+          <span className="text-xs font-bold uppercase text-indigo-700">
+            {planCfg.label} ({planCfg.durationLabel})
+          </span>
+        );
+      },
     },
     {
       title: 'Nominal',
@@ -226,7 +230,7 @@ export default function BillingPage() {
 
         {/* Status Paket & Kuota */}
         {school && (
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100 space-y-3">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-extrabold uppercase text-slate-400">
@@ -304,6 +308,32 @@ export default function BillingPage() {
                 Fitur AI: {school.ai_features_enabled ? '✅ Aktif' : '⛔ Nonaktif'}
               </p>
             </div>
+
+            <div
+              id="topup-ai"
+              className="bg-white p-6 rounded-3xl shadow-sm border border-indigo-100 space-y-2"
+            >
+              <span className="text-xs font-extrabold uppercase text-indigo-500">
+                ✨ Kuota & Token AI Sekolah
+              </span>
+              <div className="text-2xl font-black text-slate-900">
+                {school.ai_total_credits ?? 0}{' '}
+                <span className="text-xs font-semibold text-slate-400">
+                  kuota tersedia
+                </span>
+              </div>
+              <div className="flex flex-wrap gap-1.5 text-[11px] font-bold">
+                <span className="px-2 py-0.5 rounded-lg bg-indigo-50 text-indigo-700 border border-indigo-100">
+                  Paket: {school.ai_plan_credits ?? 0}
+                </span>
+                <span className="px-2 py-0.5 rounded-lg bg-amber-50 text-amber-700 border border-amber-200">
+                  Token Top-Up: {school.ai_topup_credits ?? 0}
+                </span>
+              </div>
+              <p className="text-[11px] text-slate-500 leading-relaxed">
+                Kuota Paket otomatis di-reset saat perpanjangan paket (Trial: {SUBSCRIPTION_PLANS.trial.aiPlanCredits}x, Basic: {SUBSCRIPTION_PLANS.basic.aiPlanCredits}x, Pro: {SUBSCRIPTION_PLANS.pro.aiPlanCredits}x). Token Top-Up tidak pernah hangus (rollover). Hubungi Admin Platform untuk pembelian Token AI tambahan.
+              </p>
+            </div>
           </div>
         )}
 
@@ -357,54 +387,69 @@ export default function BillingPage() {
               </div>
 
               <form onSubmit={handleCreateInvoice} className="space-y-3">
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">
-                      Pilih Paket
-                    </label>
-                    <select
-                      value={selectedPlan}
-                      onChange={(e) => setSelectedPlan(e.target.value as PaidPlanCode)}
-                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-xs font-bold text-slate-800"
-                    >
-                      {plans.map((p) => (
-                        <option key={p.code} value={p.code}>
-                          {p.name}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">
-                      Siklus Tagihan
-                    </label>
-                    <select
-                      value={billingCycle}
-                      onChange={(e) => setBillingCycle(e.target.value as BillingCycle)}
-                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-xs font-bold text-slate-800"
-                    >
-                      <option value="monthly">Bulanan (30 Hari)</option>
-                      <option value="yearly">Tahunan (365 Hari)</option>
-                    </select>
-                  </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {plans.map((p) => {
+                    const isSelected = selectedPlan === p.code;
+                    return (
+                      <button
+                        key={p.code}
+                        type="button"
+                        onClick={() => {
+                          setSelectedPlan(p.code as PaidPlanCode);
+                          setBillingCycle(p.code === 'pro' ? 'yearly' : 'monthly');
+                        }}
+                        className={`relative text-left p-3.5 rounded-2xl border transition flex flex-col justify-between gap-1.5 cursor-pointer ${
+                          isSelected
+                            ? 'border-indigo-600 bg-indigo-50/70 ring-2 ring-indigo-500/30'
+                            : 'border-slate-200 bg-slate-50/60 hover:bg-slate-50'
+                        }`}
+                      >
+                        {p.isPopular && (
+                          <span className="inline-flex self-start px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-amber-400 text-slate-950">
+                            ⭐ Rekomendasi • Most Popular
+                          </span>
+                        )}
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-black uppercase text-indigo-700">
+                            {p.name}
+                          </span>
+                          {isSelected && <CheckCircleFilled className="text-indigo-600" />}
+                        </div>
+                        <div className="text-base font-black text-slate-900">
+                          {formatIdr(p.price)}
+                        </div>
+                        <div className="text-[10px] text-slate-500 font-semibold">
+                          {p.priceSubtext} • {p.durationDays} Hari
+                        </div>
+                        <div className="text-[10px] text-slate-600 font-bold pt-1.5 border-t border-slate-200/70">
+                          {p.maxStudents} Peserta • {p.maxUsers} Admin/Pembina • {p.aiPlanCredits}x AI
+                        </div>
+                      </button>
+                    );
+                  })}
                 </div>
 
                 {(() => {
                   const p = plans.find((x) => x.code === selectedPlan);
                   if (!p) return null;
-                  const price =
-                    billingCycle === 'yearly' ? p.yearlyPriceIdr : p.monthlyPriceIdr;
                   return (
-                    <div className="bg-indigo-50 border border-indigo-100 p-3 rounded-2xl text-xs space-y-1">
-                      <div className="font-black text-indigo-700 text-sm">
-                        Total Tagihan: {formatIdr(price)}
-                      </div>
-                      <div className="text-slate-600 flex flex-wrap gap-2">
-                        {p.features.map((f) => (
-                          <span key={f} className="inline-flex items-center gap-1 text-[11px]">
-                            <CheckCircleFilled className="text-emerald-600" /> {f}
+                    <div className="bg-indigo-50 border border-indigo-100 p-3.5 rounded-2xl text-xs space-y-2">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <div className="font-black text-indigo-700 text-sm">
+                          Total Tagihan: {formatIdr(p.price)} ({p.durationLabel})
+                        </div>
+                        {p.isPopular && (
+                          <span className="px-2 py-0.5 rounded-lg bg-indigo-600 text-white text-[10px] font-bold">
+                            🔥 Paket Andalan
                           </span>
+                        )}
+                      </div>
+                      <div className="text-slate-600 flex flex-col gap-1.5">
+                        {p.features.map((f) => (
+                          <div key={f} className="flex items-center gap-1.5 text-[11px]">
+                            <CheckCircleFilled className="text-emerald-600 shrink-0" />
+                            <span>{f}</span>
+                          </div>
                         ))}
                       </div>
                     </div>

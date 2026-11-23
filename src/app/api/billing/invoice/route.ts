@@ -29,7 +29,7 @@ export async function POST(request: Request) {
     if (!isPaidPlanCode(body.planCode)) {
       throw new ValidationError('Pilihan paket berbayar tidak valid.');
     }
-    const billingCycle = body.billingCycle === 'yearly' ? 'yearly' : 'monthly';
+    const billingCycle = body.planCode === 'pro' ? 'yearly' : 'monthly';
     const paymentReference = assertSafeText(body.paymentReference || '', 'Referensi Pembayaran', 120);
     const payerNote = assertSafeText(body.payerNote || '', 'Catatan Pembayaran', 300);
 

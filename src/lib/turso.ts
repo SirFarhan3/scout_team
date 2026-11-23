@@ -63,6 +63,39 @@ export async function getDb(): Promise<Client> {
       } catch {
         // Abaikan bila gagal
       }
+      try {
+        await client.execute(
+          'ALTER TABLE schools ADD COLUMN ai_plan_credits INTEGER NOT NULL DEFAULT 2 CHECK (ai_plan_credits >= 0)'
+        );
+      } catch {
+        // Kolom ai_plan_credits sudah ada
+      }
+      try {
+        await client.execute(
+          'ALTER TABLE schools ADD COLUMN ai_topup_credits INTEGER NOT NULL DEFAULT 0 CHECK (ai_topup_credits >= 0)'
+        );
+      } catch {
+        // Kolom ai_topup_credits sudah ada
+      }
+      try {
+        await client.execute(`
+          CREATE TABLE IF NOT EXISTS ai_credit_logs (
+            id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(4)) || '-' || hex(randomblob(2)) || '-4' || substr(hex(randomblob(2)), 2) || '-' || substr('89ab', 1 + (abs(random()) % 4), 1) || substr(hex(randomblob(2)), 2) || '-' || hex(randomblob(6)))),
+            school_id TEXT NOT NULL REFERENCES schools(id) ON DELETE CASCADE,
+            user_id TEXT REFERENCES users(id) ON DELETE SET NULL,
+            type TEXT NOT NULL CHECK (type IN ('usage', 'plan_reset', 'topup', 'refund')),
+            source TEXT NOT NULL CHECK (source IN ('plan', 'topup')),
+            amount INTEGER NOT NULL,
+            feature TEXT,
+            created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+          )
+        `);
+        await client.execute(
+          'CREATE INDEX IF NOT EXISTS idx_ai_credit_logs_school_id ON ai_credit_logs (school_id, created_at DESC)'
+        );
+      } catch {
+        // Tabel ai_credit_logs sudah ada
+      }
     })();
   }
   await fkPragmaReady;
