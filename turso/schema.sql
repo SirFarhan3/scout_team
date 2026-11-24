@@ -397,11 +397,28 @@ CREATE INDEX IF NOT EXISTS idx_invoices_school_id
 CREATE INDEX IF NOT EXISTS idx_invoices_status
   ON invoices (status, created_at DESC);
 
+-- ----------------------------------------------------------------------------
+-- 7D. TABEL RIWAYAT LIVE CHAT AI (ASISTEN PEMBINA PRAMUKA PER SEKOLAH)
+-- ----------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS ai_chat_messages (
+  id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(4)) || '-' || hex(randomblob(2)) || '-4' || substr(hex(randomblob(2)), 2) || '-' || substr('89ab', 1 + (abs(random()) % 4), 1) || substr(hex(randomblob(2)), 2) || '-' || hex(randomblob(6)))),
+  school_id TEXT NOT NULL REFERENCES schools(id) ON DELETE CASCADE,
+  user_id TEXT REFERENCES users(id) ON DELETE SET NULL,
+  user_name TEXT,
+  role TEXT NOT NULL CHECK (role IN ('user', 'assistant')),
+  content TEXT NOT NULL,
+  created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_ai_chat_messages_school_created
+  ON ai_chat_messages (school_id, created_at);
+
 -- 8. TRIGGER CASCADE & CLEANUP (AMAN DI TURSO HTTP STATELESS CONNECTION)
 -- ----------------------------------------------------------------------------
 CREATE TRIGGER IF NOT EXISTS trg_schools_cleanup_del
 BEFORE DELETE ON schools
 BEGIN
+  DELETE FROM ai_chat_messages WHERE school_id = OLD.id;
   DELETE FROM invoices WHERE school_id = OLD.id;
   DELETE FROM ai_credit_logs WHERE school_id = OLD.id;
   DELETE FROM user_sessions WHERE school_id = OLD.id;
@@ -443,5 +460,6 @@ BEGIN
   UPDATE subscription_invoices SET verified_by = NULL WHERE verified_by = OLD.id;
   UPDATE license_keys SET created_by = NULL WHERE created_by = OLD.id;
   UPDATE security_audit_logs SET user_id = NULL WHERE user_id = OLD.id;
+  UPDATE ai_chat_messages SET user_id = NULL WHERE user_id = OLD.id;
 END;
 

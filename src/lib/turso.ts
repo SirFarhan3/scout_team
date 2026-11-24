@@ -144,6 +144,24 @@ export async function getDb(): Promise<Client> {
       } catch {
         // Kolom ai_tokens sudah ada
       }
+      try {
+        await client.execute(`
+          CREATE TABLE IF NOT EXISTS ai_chat_messages (
+            id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(4)) || '-' || hex(randomblob(2)) || '-4' || substr(hex(randomblob(2)), 2) || '-' || substr('89ab', 1 + (abs(random()) % 4), 1) || substr(hex(randomblob(2)), 2) || '-' || hex(randomblob(6)))),
+            school_id TEXT NOT NULL REFERENCES schools(id) ON DELETE CASCADE,
+            user_id TEXT REFERENCES users(id) ON DELETE SET NULL,
+            user_name TEXT,
+            role TEXT NOT NULL CHECK (role IN ('user', 'assistant')),
+            content TEXT NOT NULL,
+            created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+          )
+        `);
+        await client.execute(
+          'CREATE INDEX IF NOT EXISTS idx_ai_chat_messages_school_created ON ai_chat_messages (school_id, created_at)'
+        );
+      } catch {
+        // Tabel ai_chat_messages sudah ada
+      }
     })();
   }
   await fkPragmaReady;
