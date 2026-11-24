@@ -116,8 +116,10 @@ CREATE TABLE IF NOT EXISTS license_keys (
   id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(4)) || '-' || hex(randomblob(2)) || '-4' || substr(hex(randomblob(2)), 2) || '-' || substr('89ab', 1 + (abs(random()) % 4), 1) || substr(hex(randomblob(2)), 2) || '-' || hex(randomblob(6)))),
   code_hash TEXT NOT NULL UNIQUE,
   code_preview TEXT NOT NULL,
+  voucher_type TEXT NOT NULL DEFAULT 'plan' CHECK (voucher_type IN ('plan', 'ai_tokens', 'extend_days')),
   plan_code TEXT NOT NULL CHECK (plan_code IN ('basic', 'pro', 'enterprise')),
   duration_days INTEGER NOT NULL CHECK (duration_days > 0),
+  ai_tokens INTEGER NOT NULL DEFAULT 0 CHECK (ai_tokens >= 0),
   max_uses INTEGER NOT NULL DEFAULT 1 CHECK (max_uses > 0),
   used_count INTEGER NOT NULL DEFAULT 0 CHECK (used_count >= 0),
   is_active INTEGER NOT NULL DEFAULT 1 CHECK (is_active IN (0, 1)),
@@ -364,11 +366,43 @@ CREATE TABLE IF NOT EXISTS ai_credit_logs (
 CREATE INDEX IF NOT EXISTS idx_ai_credit_logs_school_id
   ON ai_credit_logs (school_id, created_at DESC);
 
+-- ----------------------------------------------------------------------------
+-- 7C. TABEL INVOICES TERPADU (TAGIHAN PENDING & KWITANSI LUNAS)
+-- ----------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS invoices (
+  id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(4)) || '-' || hex(randomblob(2)) || '-4' || substr(hex(randomblob(2)), 2) || '-' || substr('89ab', 1 + (abs(random()) % 4), 1) || substr(hex(randomblob(2)), 2) || '-' || hex(randomblob(6)))),
+  invoice_number TEXT NOT NULL UNIQUE,
+  school_id TEXT NOT NULL REFERENCES schools(id) ON DELETE CASCADE,
+  school_name TEXT NOT NULL,
+  gugusdepan TEXT,
+  contact_name TEXT,
+  contact_email TEXT,
+  item_type TEXT NOT NULL CHECK (item_type IN ('subscription', 'topup')),
+  item_code TEXT NOT NULL,
+  item_name TEXT NOT NULL,
+  item_description TEXT,
+  period_start TEXT,
+  period_end TEXT,
+  amount INTEGER NOT NULL CHECK (amount >= 0),
+  discount INTEGER NOT NULL DEFAULT 0 CHECK (discount >= 0),
+  total_amount INTEGER NOT NULL CHECK (total_amount >= 0),
+  payment_method TEXT NOT NULL DEFAULT 'Transfer Bank / QRIS',
+  status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'paid', 'cancelled')),
+  paid_at TEXT,
+  created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_invoices_school_id
+  ON invoices (school_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_invoices_status
+  ON invoices (status, created_at DESC);
+
 -- 8. TRIGGER CASCADE & CLEANUP (AMAN DI TURSO HTTP STATELESS CONNECTION)
 -- ----------------------------------------------------------------------------
 CREATE TRIGGER IF NOT EXISTS trg_schools_cleanup_del
 BEFORE DELETE ON schools
 BEGIN
+  DELETE FROM invoices WHERE school_id = OLD.id;
   DELETE FROM ai_credit_logs WHERE school_id = OLD.id;
   DELETE FROM user_sessions WHERE school_id = OLD.id;
   DELETE FROM subscription_invoices WHERE school_id = OLD.id;

@@ -21,7 +21,7 @@ import {
   isSubscriptionPlanCode,
   type SubscriptionPlanCode,
 } from '@/lib/subscription-plans';
-import { getPlanPriceIdr } from '@/lib/plans';
+import { createPendingInvoice } from '@/lib/invoices';
 import { createServerSession } from '@/lib/session';
 import { ValidationError, handleApiError, toSchoolDTO } from '@/lib/authServer';
 import { logSecurityEvent } from '@/lib/auditLog';
@@ -171,33 +171,10 @@ export async function POST(request: Request) {
     // Seed master poin default khusus milik sekolah baru ini
     await seedDefaultPointPresets(createdSchoolId);
 
-    // Jika memilih paket berbayar, buat invoice pending awal otomatis
-    let initialInvoice: Record<string, unknown> | null = null;
+    // Jika memilih paket berbayar, buat invoice pending awal otomatis di tabel invoices terpadu
+    let initialInvoice: unknown = null;
     if (isPaidPlanCode(rawPlan)) {
-      const amountIdr = getPlanPriceIdr(rawPlan, billingCycle);
-      const invoiceNumber = `INV-${now.toISOString().slice(0, 10).replace(/-/g, '')}-${crypto
-        .randomBytes(3)
-        .toString('hex')
-        .toUpperCase()}`;
-
-      initialInvoice = await dbOne<Record<string, unknown>>(
-        `INSERT INTO subscription_invoices (
-           id, invoice_number, school_id, requested_by, plan_code, billing_cycle,
-           amount_idr, status, payment_method, payer_note, created_at
-         ) VALUES (?, ?, ?, ?, ?, ?, ?, 'pending', 'manual_transfer', ?, ?)
-         RETURNING *`,
-        [
-          crypto.randomUUID(),
-          invoiceNumber,
-          createdSchoolId,
-          createdUser.id,
-          rawPlan,
-          billingCycle,
-          amountIdr,
-          `Pendaftaran awal paket ${planDef.name} (${billingCycle})`,
-          nowIso,
-        ]
-      );
+      initialInvoice = await createPendingInvoice(createdSchoolId, 'subscription', rawPlan);
     }
 
     const { token } = await createServerSession({

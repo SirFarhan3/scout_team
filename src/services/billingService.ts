@@ -1,12 +1,12 @@
 import { apiFetch } from '@/lib/apiClient';
 import type {
-  BillingCycle,
   InvoiceDTO,
-  PaidPlanCode,
+  InvoiceItemType,
   SchoolDTO,
   SchoolUsageStats,
 } from '@/types/school';
 import type { PlanDefinition } from '@/lib/plans';
+import type { AiTopupPackageConfig } from '@/lib/payment-config';
 
 export const billingService = {
   async getBillingOverview() {
@@ -15,21 +15,50 @@ export const billingService = {
       school: SchoolDTO;
       usage: SchoolUsageStats;
       plans: PlanDefinition[];
+      topupPackages: AiTopupPackageConfig[];
       invoices: InvoiceDTO[];
     }>('/api/billing');
   },
 
-  async createInvoice(input: {
-    planCode: PaidPlanCode;
-    billingCycle: BillingCycle;
-    paymentReference?: string;
-    payerNote?: string;
+  async createPendingInvoice(input: {
+    itemType: InvoiceItemType;
+    itemCode: string;
   }) {
-    const res = await apiFetch<{ success: true; invoice: InvoiceDTO }>('/api/billing/invoice', {
+    const res = await apiFetch<{ success: true; invoice: InvoiceDTO }>('/api/invoices', {
       method: 'POST',
       body: JSON.stringify(input),
     });
     return res.invoice;
+  },
+
+  async getInvoiceById(id: string) {
+    return apiFetch<{
+      success: true;
+      invoice: InvoiceDTO;
+      viewerRole: string;
+    }>(`/api/invoices/${encodeURIComponent(id)}`);
+  },
+
+  async cancelInvoice(id: string) {
+    return apiFetch<{
+      success: true;
+      message: string;
+      invoice: InvoiceDTO;
+    }>(`/api/invoices/${encodeURIComponent(id)}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ action: 'cancel' }),
+    });
+  },
+
+  async markInvoicePaid(id: string) {
+    return apiFetch<{
+      success: true;
+      message: string;
+      invoice: InvoiceDTO;
+    }>(`/api/invoices/${encodeURIComponent(id)}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ action: 'mark_paid' }),
+    });
   },
 
   async redeemLicenseKey(licenseCode: string) {

@@ -96,6 +96,54 @@ export async function getDb(): Promise<Client> {
       } catch {
         // Tabel ai_credit_logs sudah ada
       }
+      try {
+        await client.execute(`
+          CREATE TABLE IF NOT EXISTS invoices (
+            id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(4)) || '-' || hex(randomblob(2)) || '-4' || substr(hex(randomblob(2)), 2) || '-' || substr('89ab', 1 + (abs(random()) % 4), 1) || substr(hex(randomblob(2)), 2) || '-' || hex(randomblob(6)))),
+            invoice_number TEXT NOT NULL UNIQUE,
+            school_id TEXT NOT NULL REFERENCES schools(id) ON DELETE CASCADE,
+            school_name TEXT NOT NULL,
+            gugusdepan TEXT,
+            contact_name TEXT,
+            contact_email TEXT,
+            item_type TEXT NOT NULL CHECK (item_type IN ('subscription', 'topup')),
+            item_code TEXT NOT NULL,
+            item_name TEXT NOT NULL,
+            item_description TEXT,
+            period_start TEXT,
+            period_end TEXT,
+            amount INTEGER NOT NULL CHECK (amount >= 0),
+            discount INTEGER NOT NULL DEFAULT 0 CHECK (discount >= 0),
+            total_amount INTEGER NOT NULL CHECK (total_amount >= 0),
+            payment_method TEXT NOT NULL DEFAULT 'Transfer Bank / QRIS',
+            status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'paid', 'cancelled')),
+            paid_at TEXT,
+            created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+          )
+        `);
+        await client.execute(
+          'CREATE INDEX IF NOT EXISTS idx_invoices_school_id ON invoices (school_id, created_at DESC)'
+        );
+        await client.execute(
+          'CREATE INDEX IF NOT EXISTS idx_invoices_status ON invoices (status, created_at DESC)'
+        );
+      } catch {
+        // Tabel invoices sudah ada
+      }
+      try {
+        await client.execute(
+          "ALTER TABLE license_keys ADD COLUMN voucher_type TEXT NOT NULL DEFAULT 'plan'"
+        );
+      } catch {
+        // Kolom voucher_type sudah ada
+      }
+      try {
+        await client.execute(
+          'ALTER TABLE license_keys ADD COLUMN ai_tokens INTEGER NOT NULL DEFAULT 0'
+        );
+      } catch {
+        // Kolom ai_tokens sudah ada
+      }
     })();
   }
   await fkPragmaReady;

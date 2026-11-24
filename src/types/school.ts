@@ -44,28 +44,41 @@ export interface SchoolUsageStats {
   user_count: number;
 }
 
+export type InvoiceItemType = 'subscription' | 'topup';
+export type InvoiceStatus = 'pending' | 'paid' | 'cancelled';
+
 export interface InvoiceDTO {
   id: string;
   invoice_number: string;
   school_id: string;
-  school_name?: string;
-  plan_code: PaidPlanCode;
-  billing_cycle: BillingCycle;
-  amount_idr: number;
-  status: 'pending' | 'paid' | 'rejected' | 'cancelled';
-  payment_method: 'manual_transfer' | 'license_key' | 'superadmin_grant' | 'gateway';
-  payment_reference?: string | null;
-  payer_note?: string | null;
-  admin_note?: string | null;
-  verified_at?: string | null;
+  school_name: string;
+  gugusdepan?: string | null;
+  contact_name?: string | null;
+  contact_email?: string | null;
+  item_type: InvoiceItemType;
+  item_code: string;
+  item_name: string;
+  item_description?: string | null;
+  period_start?: string | null;
+  period_end?: string | null;
+  amount: number;
+  discount: number;
+  total_amount: number;
+  payment_method: string;
+  status: InvoiceStatus;
+  paid_at?: string | null;
   created_at: string;
 }
+
+export type VoucherType = 'plan' | 'ai_tokens' | 'extend_days';
 
 export interface LicenseKeyDTO {
   id: string;
   code_preview: string;
+  voucher_type: VoucherType;
   plan_code: PaidPlanCode;
   duration_days: number;
+  ai_tokens: number;
   max_uses: number;
   used_count: number;
   is_active: boolean;

@@ -1,13 +1,7 @@
-import crypto from 'crypto';
 import { NextResponse } from 'next/server';
-import { dbExec, dbOne, toSqlBool } from '@/lib/turso';
 import { assertSameOriginMutation } from '@/lib/serverSecurity';
-import { assertSafeText, assertValidUuid } from '@/lib/sanitize';
-import {
-  SUBSCRIPTION_PLANS,
-  isPaidPlanCode,
-  type PaidPlanCode,
-} from '@/lib/subscription-plans';
+import { assertValidUuid } from '@/lib/sanitize';
+import { cancelPendingInvoice, markInvoiceAsPaid } from '@/lib/invoices';
 import { ValidationError, handleApiError, requireAuth } from '@/lib/authServer';
 import { logSecurityEvent } from '@/lib/auditLog';
 import { getClientIp } from '@/lib/rateLimit';
@@ -24,92 +18,33 @@ export async function POST(
 
     const body = await request.json().catch(() => null);
     const action = body?.action;
-    const adminNote = assertSafeText(body?.adminNote || '', 'Catatan Admin', 300);
 
-    if (action !== 'approve' && action !== 'reject') {
-      throw new ValidationError('Aksi invoice tidak valid (harus approve atau reject).');
+    if (
+      action !== 'approve' &&
+      action !== 'mark_paid' &&
+      action !== 'reject' &&
+      action !== 'cancel'
+    ) {
+      throw new ValidationError('Aksi invoice tidak valid (harus approve/mark_paid atau reject/cancel).');
     }
 
-    const newStatus = action === 'approve' ? 'paid' : 'rejected';
-    const nowIso = new Date().toISOString();
-
-    const invoice = await dbOne<Record<string, unknown>>(
-      `UPDATE subscription_invoices
-       SET status = ?, admin_note = ?, verified_by = ?, verified_at = ?
-       WHERE id = ? AND status = 'pending'
-       RETURNING *`,
-      [newStatus, adminNote || null, ctx.user.id, nowIso, invoiceId]
-    );
-
-    if (!invoice) {
-      throw new ValidationError('Invoice tidak ditemukan atau sudah diproses sebelumnya.');
-    }
-
-    if (action === 'approve') {
-      if (!isPaidPlanCode(invoice.plan_code)) {
-        throw new ValidationError('Paket pada invoice tidak valid.');
-      }
-      const invoicePlanCode: PaidPlanCode = invoice.plan_code;
-
-      const schoolRow = await dbOne<Record<string, unknown>>(
-        `SELECT * FROM schools WHERE id = ? LIMIT 1`,
-        [String(invoice.school_id)]
-      );
-
-      if (!schoolRow) {
-        throw new ValidationError('Sekolah tidak ditemukan.');
-      }
-
-      const planDef = SUBSCRIPTION_PLANS[invoicePlanCode];
-      const days = planDef.durationDays;
-      const nowMs = Date.now();
-      const curMs = new Date(String(schoolRow.subscription_expires_at)).getTime();
-      const isCurrentlyActive =
-        (schoolRow.subscription_status === 'active' || schoolRow.subscription_status === 'trial') &&
-        !Number.isNaN(curMs) &&
-        curMs > nowMs;
-      const baseMs = isCurrentlyActive ? curMs : nowMs;
-      const nextExpiresAt = new Date(baseMs + days * 24 * 60 * 60 * 1000).toISOString();
-
-      const nextPlanCredits = planDef.aiPlanCredits;
-      await dbExec(
-        `UPDATE schools
-         SET subscription_plan = ?, subscription_status = 'active', subscription_expires_at = ?,
-             max_students = ?, max_users = ?, ai_features_enabled = ?, ai_plan_credits = ?, updated_at = ?
-         WHERE id = ?`,
-        [
-          invoicePlanCode,
-          nextExpiresAt,
-          planDef.maxStudents,
-          planDef.maxUsers,
-          toSqlBool(planDef.aiFeaturesEnabled),
-          nextPlanCredits,
-          nowIso,
-          String(invoice.school_id),
-        ]
-      );
-
-      await dbExec(
-        `INSERT INTO ai_credit_logs (id, school_id, user_id, type, source, amount, feature, created_at)
-         VALUES (?, ?, ?, 'plan_reset', 'plan', ?, ?, ?)`,
-        [
-          crypto.randomUUID(),
-          String(invoice.school_id),
-          ctx.user.id,
-          nextPlanCredits,
-          `invoice_approved:${invoicePlanCode}`,
-          nowIso,
-        ]
-      );
-    }
+    const isApprove = action === 'approve' || action === 'mark_paid';
+    const invoice = isApprove
+      ? await markInvoiceAsPaid(invoiceId, ctx.user.id)
+      : await cancelPendingInvoice(invoiceId, { isSuperadmin: true });
 
     await logSecurityEvent({
-      schoolId: String(invoice.school_id),
+      schoolId: invoice.school_id,
       userId: ctx.user.id,
-      action: action === 'approve' ? 'INVOICE_APPROVED' : 'INVOICE_REJECTED',
-      targetType: 'subscription_invoice',
-      targetId: String(invoice.id),
+      action: isApprove ? 'INVOICE_APPROVED' : 'INVOICE_CANCELLED',
+      targetType: 'invoice',
+      targetId: invoice.id,
       ipAddress: getClientIp(request),
+      metadata: {
+        invoiceNumber: invoice.invoice_number,
+        itemType: invoice.item_type,
+        itemCode: invoice.item_code,
+      },
     });
 
     return NextResponse.json({ success: true, invoice });

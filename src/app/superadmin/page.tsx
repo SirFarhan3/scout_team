@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
+import Link from 'next/link';
 import { App, Button, Card, Modal, Popconfirm, Table, Tag } from 'antd';
 import {
   PlusOutlined,
@@ -10,6 +11,8 @@ import {
   CloseOutlined,
   CopyOutlined,
   DeleteOutlined,
+  EyeOutlined,
+  EyeInvisibleOutlined,
 } from '@ant-design/icons';
 import Header from '@/components/Header';
 import PageLoader from '@/components/PageLoader';
@@ -24,6 +27,7 @@ import type {
   PaidPlanCode,
   SubscriptionPlanCode,
   SubscriptionStatus,
+  VoucherType,
 } from '@/types/school';
 
 export default function SuperadminPage() {
@@ -34,6 +38,14 @@ export default function SuperadminPage() {
   const [licenseKeys, setLicenseKeys] = useState<LicenseKeyDTO[]>([]);
   const [auditLogs, setAuditLogs] = useState<any[]>([]);
   const [activeTab, setActiveTab] = useState<'schools' | 'invoices' | 'keys' | 'audit'>('schools');
+  const [invoiceFilter, setInvoiceFilter] = useState<'all' | 'pending' | 'paid' | 'cancelled'>('all');
+
+  // Helper agar input angka default '0', bisa dihapus sampai kosong (''), dan tidak pernah jadi '010'
+  const cleanNumberInput = (raw: string): string => {
+    const digitsOnly = raw.replace(/[^0-9]/g, '');
+    if (digitsOnly === '') return '';
+    return digitsOnly.replace(/^0+(?=\d)/, '');
+  };
 
   // Modal Tambah Sekolah Manual
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -44,7 +56,9 @@ export default function SuperadminPage() {
   const [adminUsername, setAdminUsername] = useState('');
   const [adminPassword, setAdminPassword] = useState('');
   const [plan, setPlan] = useState<SubscriptionPlanCode>('pro');
-  const [durationDays, setDurationDays] = useState(365);
+  const [durationDays, setDurationDays] = useState<string>(
+    String(SUBSCRIPTION_PLANS.pro.durationDays)
+  );
   const [creatingSchool, setCreatingSchool] = useState(false);
 
   // Modal Kelola Langganan & Edit Sekolah
@@ -55,16 +69,20 @@ export default function SuperadminPage() {
   const [editAdminPassword, setEditAdminPassword] = useState('');
   const [editPlan, setEditPlan] = useState<SubscriptionPlanCode>('pro');
   const [editStatus, setEditStatus] = useState<SubscriptionStatus>('active');
-  const [extendDays, setExtendDays] = useState<number>(0);
-  const [topupAiCredits, setTopupAiCredits] = useState<number>(0);
+  const [extendDays, setExtendDays] = useState<string>('0');
+  const [topupAiCredits, setTopupAiCredits] = useState<string>('0');
   const [savingSchool, setSavingSchool] = useState(false);
 
-  // Form Generate License Key
+  // Form Generate Kode Voucher & Lisensi
+  const [voucherType, setVoucherType] = useState<VoucherType>('ai_tokens');
   const [keyPlan, setKeyPlan] = useState<PaidPlanCode>('pro');
-  const [keyDays, setKeyDays] = useState<number>(365);
-  const [keyMaxUses, setKeyMaxUses] = useState<number>(1);
+  const [keyDays, setKeyDays] = useState<string>('0');
+  const [keyAiTokens, setKeyAiTokens] = useState<string>('0');
+  const [keyMaxUses, setKeyMaxUses] = useState<string>('1');
   const [generatingKey, setGeneratingKey] = useState(false);
   const [latestGeneratedCode, setLatestGeneratedCode] = useState<string | null>(null);
+  const [revealedKeyIds, setRevealedKeyIds] = useState<Record<string, boolean>>({});
+  const [previewVoucher, setPreviewVoucher] = useState<LicenseKeyDTO | null>(null);
 
   const fetchSuperadminData = async () => {
     const user = await authService.getCurrentUser();
@@ -120,6 +138,11 @@ export default function SuperadminPage() {
 
   const handleCreateSchool = async (e: React.FormEvent) => {
     e.preventDefault();
+    const parsedDays = Number(durationDays);
+    if (!durationDays.trim() || Number.isNaN(parsedDays) || parsedDays <= 0) {
+      message.warning('Masa aktif (hari) wajib diisi dan tidak boleh 0.');
+      return;
+    }
     try {
       setCreatingSchool(true);
       await superadminService.createSchool({
@@ -130,7 +153,7 @@ export default function SuperadminPage() {
         adminUsername,
         adminPassword,
         plan,
-        durationDays,
+        durationDays: parsedDays,
       });
       message.success('Sekolah dan akun admin pertamanya berhasil dibuat!');
       setShowCreateModal(false);
@@ -150,6 +173,8 @@ export default function SuperadminPage() {
 
   const handleSaveSchoolSub = async () => {
     if (!editingSchool) return;
+    const parsedExtendDays = Number(extendDays) || 0;
+    const parsedTopupCredits = Number(topupAiCredits) || 0;
     try {
       setSavingSchool(true);
       await superadminService.updateSchool(editingSchool.id, {
@@ -159,13 +184,14 @@ export default function SuperadminPage() {
         ...(editAdminPassword.trim() ? { adminPassword: editAdminPassword.trim() } : {}),
         subscription_plan: editPlan,
         subscription_status: editStatus,
-        ...(extendDays > 0 ? { extendDays } : {}),
-        ...(topupAiCredits > 0 ? { topupAiCredits } : {}),
+        ...(parsedExtendDays > 0 ? { extendDays: parsedExtendDays } : {}),
+        ...(parsedTopupCredits > 0 ? { topupAiCredits: parsedTopupCredits } : {}),
       });
       message.success('Data sekolah, admin, dan langganan berhasil diperbarui!');
       setEditingSchool(null);
       setEditAdminPassword('');
-      setTopupAiCredits(0);
+      setExtendDays('0');
+      setTopupAiCredits('0');
       await loadData();
     } catch (err: any) {
       message.error(err.message || 'Gagal memperbarui sekolah.');
@@ -174,13 +200,13 @@ export default function SuperadminPage() {
     }
   };
 
-  const handleProcessInvoice = async (id: string, action: 'approve' | 'reject') => {
+  const handleProcessInvoice = async (id: string, action: 'mark_paid' | 'cancel') => {
     try {
       await superadminService.processInvoice(id, action);
       message.success(
-        action === 'approve'
-          ? 'Pembayaran disetujui & paket sekolah langsung aktif!'
-          : 'Invoice ditolak.'
+        action === 'mark_paid'
+          ? 'Invoice dikonfirmasi LUNAS! Paket sekolah / Token AI otomatis diaktifkan.'
+          : 'Invoice berhasil dibatalkan.'
       );
       await loadData();
     } catch (err: any) {
@@ -190,18 +216,46 @@ export default function SuperadminPage() {
 
   const handleGenerateKey = async (e: React.FormEvent) => {
     e.preventDefault();
+    const parsedDays = Number(keyDays);
+    const parsedAiTokens = Number(keyAiTokens);
+    const parsedMaxUses = Number(keyMaxUses);
+
+    if (!keyMaxUses.trim() || Number.isNaN(parsedMaxUses) || parsedMaxUses <= 0) {
+      message.warning('Maksimal pemakaian wajib diisi dan tidak boleh 0.');
+      return;
+    }
+
+    if (voucherType === 'ai_tokens') {
+      if (!keyAiTokens.trim() || Number.isNaN(parsedAiTokens) || parsedAiTokens <= 0) {
+        message.warning('Jumlah Token Generate AI wajib diisi dan tidak boleh 0.');
+        return;
+      }
+    } else if (voucherType === 'extend_days') {
+      if (!keyDays.trim() || Number.isNaN(parsedDays) || parsedDays <= 0) {
+        message.warning('Tambahan masa aktif (hari) wajib diisi dan tidak boleh 0.');
+        return;
+      }
+    } else {
+      if (!keyDays.trim() || Number.isNaN(parsedDays) || parsedDays <= 0) {
+        message.warning('Masa aktif paket (hari) wajib diisi dan tidak boleh 0.');
+        return;
+      }
+    }
+
     try {
       setGeneratingKey(true);
       const res = await superadminService.generateLicenseKey({
+        voucherType,
         planCode: keyPlan,
-        durationDays: keyDays,
-        maxUses: keyMaxUses,
+        durationDays: parsedDays > 0 ? parsedDays : 1,
+        aiTokens: parsedAiTokens > 0 ? parsedAiTokens : 0,
+        maxUses: parsedMaxUses,
       });
       setLatestGeneratedCode(res.plainCode);
-      message.success('Kode lisensi berhasil dibuat!');
+      message.success('Kode voucher / lisensi berhasil dibuat!');
       await loadData();
     } catch (err: any) {
-      message.error(err.message || 'Gagal membuat kode lisensi.');
+      message.error(err.message || 'Gagal membuat kode voucher / lisensi.');
     } finally {
       setGeneratingKey(false);
     }
@@ -229,12 +283,12 @@ export default function SuperadminPage() {
 
   const handlePlanChange = (selectedPlan: SubscriptionPlanCode) => {
     setPlan(selectedPlan);
-    setDurationDays(SUBSCRIPTION_PLANS[selectedPlan].durationDays);
+    setDurationDays(String(SUBSCRIPTION_PLANS[selectedPlan].durationDays));
   };
 
   const handleEditPlanChange = (selectedPlan: SubscriptionPlanCode) => {
     setEditPlan(selectedPlan);
-    setExtendDays(SUBSCRIPTION_PLANS[selectedPlan].durationDays);
+    setExtendDays(String(SUBSCRIPTION_PLANS[selectedPlan].durationDays));
     if (selectedPlan === 'trial') {
       setEditStatus('trial');
     } else if (editStatus === 'trial' || editStatus === 'pending' || editStatus === 'expired') {
@@ -244,7 +298,7 @@ export default function SuperadminPage() {
 
   const handleKeyPlanChange = (selectedPlan: PaidPlanCode) => {
     setKeyPlan(selectedPlan);
-    setKeyDays(SUBSCRIPTION_PLANS[selectedPlan].durationDays);
+    setKeyDays(String(SUBSCRIPTION_PLANS[selectedPlan].durationDays));
   };
 
   const pendingInvoicesCount = invoices.filter((i) => i.status === 'pending').length;
@@ -324,8 +378,8 @@ export default function SuperadminPage() {
               setEditAdminPassword('');
               setEditPlan(rec.subscription_plan);
               setEditStatus(rec.subscription_status);
-              setExtendDays(0);
-              setTopupAiCredits(0);
+              setExtendDays('0');
+              setTopupAiCredits('0');
             }}
             className="bg-indigo-600 rounded-xl text-xs font-bold"
           >
@@ -353,27 +407,57 @@ export default function SuperadminPage() {
     },
   ];
 
+  const filteredInvoices =
+    invoiceFilter === 'all'
+      ? invoices
+      : invoices.filter((inv) => inv.status === invoiceFilter);
+
   const invoiceColumns = [
     {
-      title: 'Invoice',
+      title: 'No. Invoice',
       dataIndex: 'invoice_number',
       key: 'invoice_number',
-      render: (val: string) => <span className="font-mono font-bold text-xs">{val}</span>,
+      render: (val: string, rec: InvoiceDTO) => (
+        <Link
+          href={`/invoice/${encodeURIComponent(rec.id)}`}
+          className="font-mono font-bold text-xs text-indigo-600 hover:underline"
+        >
+          {val}
+        </Link>
+      ),
     },
     {
       title: 'Sekolah',
-      dataIndex: 'school_name',
       key: 'school_name',
-      render: (val: string) => <span className="font-bold text-xs">{val}</span>,
+      render: (_: any, rec: InvoiceDTO) => (
+        <div>
+          <div className="font-bold text-xs text-slate-900">{rec.school_name}</div>
+          {rec.gugusdepan && (
+            <div className="text-[11px] text-slate-400">{rec.gugusdepan}</div>
+          )}
+        </div>
+      ),
     },
     {
-      title: 'Paket & Nominal',
-      key: 'amount',
+      title: 'Item & Kategori',
+      key: 'item',
       render: (_: any, rec: InvoiceDTO) => (
         <div className="text-xs">
-          <strong className="uppercase text-indigo-700">{rec.plan_code}</strong> ({rec.billing_cycle}) —{' '}
-          {rec.amount_idr > 0 ? formatIdr(rec.amount_idr) : 'Lisensi'}
+          <div className="font-bold text-slate-800">{rec.item_name}</div>
+          <div className="text-[11px] text-slate-500">
+            {rec.item_type === 'topup' ? '🪙 Top-Up Token AI' : '🏫 Paket Langganan'}
+          </div>
         </div>
+      ),
+    },
+    {
+      title: 'Total Tagihan',
+      dataIndex: 'total_amount',
+      key: 'total_amount',
+      render: (val: number) => (
+        <span className="text-xs font-black text-indigo-700">
+          {val > 0 ? formatIdr(val) : 'Rp 0 (Lisensi)'}
+        </span>
       ),
     },
     {
@@ -382,73 +466,148 @@ export default function SuperadminPage() {
       key: 'status',
       render: (val: string) => (
         <Tag
-          color={val === 'paid' ? 'green' : val === 'pending' ? 'gold' : 'red'}
+          color={val === 'paid' ? 'green' : val === 'pending' ? 'gold' : 'default'}
           className="uppercase font-bold text-[10px]"
         >
-          {val}
+          {val === 'paid' ? 'LUNAS' : val === 'pending' ? 'PENDING' : 'DIBATALKAN'}
         </Tag>
       ),
     },
     {
-      title: 'Bukti / Catatan',
-      key: 'note',
+      title: 'Tanggal',
+      key: 'date',
       render: (_: any, rec: InvoiceDTO) => (
         <div className="text-xs text-slate-500">
-          {rec.payment_reference && <div className="font-mono">{rec.payment_reference}</div>}
-          {rec.payer_note && <div>{rec.payer_note}</div>}
+          <div>{new Date(rec.created_at).toLocaleDateString('id-ID')}</div>
+          {rec.paid_at && (
+            <div className="text-[10px] text-emerald-600 font-semibold">
+              Lunas: {new Date(rec.paid_at).toLocaleDateString('id-ID')}
+            </div>
+          )}
         </div>
       ),
     },
     {
       title: 'Aksi',
       key: 'actions',
-      render: (_: any, rec: InvoiceDTO) =>
-        rec.status === 'pending' ? (
-          <div className="flex gap-1.5">
-            <Popconfirm
-              title="Setujui pembayaran dan aktifkan sekolah?"
-              onConfirm={() => handleProcessInvoice(rec.id, 'approve')}
-            >
-              <Button
-                size="small"
-                type="primary"
-                icon={<CheckOutlined />}
-                className="bg-emerald-600 rounded-lg text-xs"
+      render: (_: any, rec: InvoiceDTO) => (
+        <div className="flex flex-wrap items-center gap-1.5">
+          {rec.status === 'pending' && (
+            <>
+              <Popconfirm
+                title="Konfirmasi pelunasan invoice ini?"
+                description="Paket langganan atau Token AI sekolah akan langsung aktif."
+                okText="Ya, Konfirmasi Lunas"
+                cancelText="Batal"
+                onConfirm={() => handleProcessInvoice(rec.id, 'mark_paid')}
               >
-                Aktifkan
-              </Button>
-            </Popconfirm>
-            <Popconfirm
-              title="Tolak invoice ini?"
-              onConfirm={() => handleProcessInvoice(rec.id, 'reject')}
-            >
-              <Button size="small" danger icon={<CloseOutlined />} className="rounded-lg text-xs" />
-            </Popconfirm>
-          </div>
-        ) : (
-          <span className="text-xs text-slate-400">Selesai</span>
-        ),
+                <Button
+                  size="small"
+                  type="primary"
+                  icon={<CheckOutlined />}
+                  className="bg-emerald-600 hover:!bg-emerald-700 border-none rounded-lg text-xs font-bold"
+                >
+                  Konfirmasi Lunas
+                </Button>
+              </Popconfirm>
+              <Popconfirm
+                title="Batalkan invoice ini?"
+                okText="Ya, Batalkan"
+                cancelText="Tidak"
+                okButtonProps={{ danger: true }}
+                onConfirm={() => handleProcessInvoice(rec.id, 'cancel')}
+              >
+                <Button
+                  size="small"
+                  danger
+                  icon={<CloseOutlined />}
+                  className="rounded-lg text-xs"
+                >
+                  Batalkan
+                </Button>
+              </Popconfirm>
+            </>
+          )}
+          <Link href={`/invoice/${encodeURIComponent(rec.id)}`}>
+            <Button size="small" className="rounded-lg text-xs font-semibold">
+              {rec.status === 'paid' ? '🖨️ Kwitansi PDF' : '📄 Lihat Detail'}
+            </Button>
+          </Link>
+        </div>
+      ),
     },
   ];
 
   const keyColumns = [
     {
-      title: 'Kode Preview',
+      title: 'Kode Voucher / Lisensi',
       dataIndex: 'code_preview',
       key: 'code_preview',
-      render: (val: string) => <span className="font-mono font-bold text-xs">{val}</span>,
+      render: (val: string, rec: LicenseKeyDTO) => {
+        const isRevealed = Boolean(revealedKeyIds[rec.id]);
+        const displayCode = isRevealed
+          ? val
+          : `${val.slice(0, 4)}****${val.slice(-4)}`;
+
+        return (
+          <div className="flex items-center gap-1.5">
+            <span className="font-mono font-bold text-xs">{displayCode}</span>
+            
+          </div>
+        );
+      },
     },
     {
-      title: 'Paket',
-      dataIndex: 'plan_code',
-      key: 'plan_code',
-      render: (val: string) => <Tag color="geekblue" className="uppercase text-[10px] font-bold">{val}</Tag>,
+      title: 'Jenis Voucher',
+      key: 'voucher_type',
+      render: (_: any, rec: LicenseKeyDTO) => {
+        if (rec.voucher_type === 'ai_tokens') {
+          return (
+            <Tag color="gold" className="uppercase text-[10px] font-bold">
+              🪙 Token Generate AI
+            </Tag>
+          );
+        }
+        if (rec.voucher_type === 'extend_days') {
+          return (
+            <Tag color="cyan" className="uppercase text-[10px] font-bold">
+              ⏳ Tambah Masa Aktif
+            </Tag>
+          );
+        }
+        return (
+          <Tag color="geekblue" className="uppercase text-[10px] font-bold">
+            🏫 Lisensi Paket {rec.plan_code}
+          </Tag>
+        );
+      },
     },
     {
-      title: 'Durasi',
-      dataIndex: 'duration_days',
-      key: 'duration_days',
-      render: (val: number) => <span className="text-xs font-semibold">{val} Hari</span>,
+      title: 'Isi / Benefit Voucher',
+      key: 'benefit',
+      render: (_: any, rec: LicenseKeyDTO) => {
+        if (rec.voucher_type === 'ai_tokens') {
+          return (
+            <span className="text-xs font-black text-amber-700">
+              +{rec.ai_tokens} Token AI (Rollover)
+            </span>
+          );
+        }
+        if (rec.voucher_type === 'extend_days') {
+          return (
+            <span className="text-xs font-bold text-slate-800">
+              +{rec.duration_days} Hari Masa Aktif
+              {rec.ai_tokens > 0 ? ` • +${rec.ai_tokens} Token AI` : ''}
+            </span>
+          );
+        }
+        return (
+          <span className="text-xs font-bold text-indigo-700">
+            Paket {rec.plan_code.toUpperCase()} ({rec.duration_days} Hari)
+            {rec.ai_tokens > 0 ? ` • +${rec.ai_tokens} Token AI` : ''}
+          </span>
+        );
+      },
     },
     {
       title: 'Pemakaian',
@@ -472,16 +631,28 @@ export default function SuperadminPage() {
     {
       title: 'Aksi',
       key: 'actions',
-      render: (_: any, rec: LicenseKeyDTO) =>
-        rec.is_active ? (
-          <Popconfirm title="Nonaktifkan kode lisensi ini?" onConfirm={() => handleRevokeKey(rec.id)}>
-            <Button size="small" danger className="rounded-lg text-xs">
-              Cabut
-            </Button>
-          </Popconfirm>
-        ) : (
-          <span className="text-xs text-slate-400">-</span>
-        ),
+      render: (_: any, rec: LicenseKeyDTO) => (
+        <div className="flex items-center gap-1.5">
+          <Button
+            size="small"
+            icon={<EyeOutlined />}
+            onClick={() => setPreviewVoucher(rec)}
+            className="rounded-lg text-xs font-semibold"
+          >
+            Preview
+          </Button>
+          {rec.is_active && (
+            <Popconfirm
+              title="Nonaktifkan kode voucher/lisensi ini?"
+              onConfirm={() => handleRevokeKey(rec.id)}
+            >
+              <Button size="small" danger className="rounded-lg text-xs">
+                Cabut
+              </Button>
+            </Popconfirm>
+          )}
+        </div>
+      ),
     },
   ];
 
@@ -541,7 +712,7 @@ export default function SuperadminPage() {
                 activeTab === 'keys' ? 'bg-emerald-600 text-white' : 'text-slate-600'
               }`}
             >
-              🔑 Kode Lisensi ({licenseKeys.length})
+              🎟️ Voucher & Lisensi ({licenseKeys.length})
             </button>
             <button
               type="button"
@@ -579,9 +750,48 @@ export default function SuperadminPage() {
         )}
 
         {activeTab === 'invoices' && (
-          <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm">
+          <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div>
+                <h2 className="text-base font-black text-slate-900">
+                  💳 Daftar Invoice & Konfirmasi Pelunasan
+                </h2>
+                <p className="text-xs text-slate-500">
+                  Klik <strong>Konfirmasi Lunas</strong> untuk mengaktifkan paket sekolah atau menambah Token AI dalam 1 klik.
+                </p>
+              </div>
+              <div className="flex flex-wrap gap-1.5 bg-slate-100 p-1 rounded-xl self-start sm:self-auto">
+                {(
+                  [
+                    { key: 'all', label: `Semua (${invoices.length})` },
+                    { key: 'pending', label: `Pending (${pendingInvoicesCount})` },
+                    {
+                      key: 'paid',
+                      label: `Lunas (${invoices.filter((i) => i.status === 'paid').length})`,
+                    },
+                    {
+                      key: 'cancelled',
+                      label: `Dibatalkan (${invoices.filter((i) => i.status === 'cancelled').length})`,
+                    },
+                  ] as const
+                ).map((tab) => (
+                  <button
+                    key={tab.key}
+                    type="button"
+                    onClick={() => setInvoiceFilter(tab.key)}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${
+                      invoiceFilter === tab.key
+                        ? 'bg-indigo-600 text-white shadow-sm'
+                        : 'text-slate-600 hover:bg-slate-200/70'
+                    }`}
+                  >
+                    {tab.label}
+                  </button>
+                ))}
+              </div>
+            </div>
             <Card className="rounded-2xl shadow-none border border-slate-100 overflow-hidden" styles={{ body: { padding: 0 } }}>
-              <Table dataSource={invoices} columns={invoiceColumns} rowKey="id" loading={loading} pagination={{ pageSize: 10 }} scroll={{ x: 800 }} />
+              <Table dataSource={filteredInvoices} columns={invoiceColumns} rowKey="id" loading={loading} pagination={{ pageSize: 10 }} scroll={{ x: 850 }} />
             </Card>
           </div>
         )}
@@ -589,49 +799,175 @@ export default function SuperadminPage() {
         {activeTab === 'keys' && (
           <div className="space-y-4">
             <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm space-y-4">
-              <h2 className="text-base font-bold text-slate-900 flex items-center gap-2">
-                <KeyOutlined className="text-emerald-600" /> Buat Kode Lisensi Baru
-              </h2>
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                <div>
+                  <h2 className="text-base font-bold text-slate-900 flex items-center gap-2">
+                    <KeyOutlined className="text-emerald-600" /> Buat Kode Voucher / Lisensi Baru
+                  </h2>
+                  <p className="text-xs text-slate-500">
+                    Kode yang di-generate dapat dimasukkan sekolah di menu <strong>Pembayaran & Invoice → Klaim Kode Voucher / Lisensi</strong>.
+                  </p>
+                </div>
+              </div>
+
+              {/* Pilihan Jenis Voucher */}
+              <div className="flex flex-wrap gap-2 bg-slate-100 p-1.5 rounded-2xl">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setVoucherType('ai_tokens');
+                    setKeyAiTokens('0');
+                  }}
+                  className={`px-3.5 py-2 rounded-xl text-xs font-bold transition cursor-pointer ${
+                    voucherType === 'ai_tokens'
+                      ? 'bg-amber-500 text-slate-950 shadow-sm'
+                      : 'text-slate-600 hover:bg-slate-200/70'
+                  }`}
+                >
+                  🪙 Voucher Token Generate AI
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setVoucherType('extend_days');
+                    setKeyDays('0');
+                    setKeyAiTokens('0');
+                  }}
+                  className={`px-3.5 py-2 rounded-xl text-xs font-bold transition cursor-pointer ${
+                    voucherType === 'extend_days'
+                      ? 'bg-cyan-600 text-white shadow-sm'
+                      : 'text-slate-600 hover:bg-slate-200/70'
+                  }`}
+                >
+                  ⏳ Voucher Tambahan Masa Aktif
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setVoucherType('plan');
+                    setKeyDays(String(SUBSCRIPTION_PLANS[keyPlan].durationDays));
+                    setKeyAiTokens('0');
+                  }}
+                  className={`px-3.5 py-2 rounded-xl text-xs font-bold transition cursor-pointer ${
+                    voucherType === 'plan'
+                      ? 'bg-indigo-600 text-white shadow-sm'
+                      : 'text-slate-600 hover:bg-slate-200/70'
+                  }`}
+                >
+                  🏫 Lisensi Paket Langganan (Basic / Pro)
+                </button>
+              </div>
+
               <form onSubmit={handleGenerateKey} className="grid grid-cols-1 sm:grid-cols-4 gap-3 items-end">
+                {voucherType === 'ai_tokens' && (
+                  <div className="sm:col-span-2 space-y-1.5">
+                    <label className="block text-[10px] font-bold text-amber-700 uppercase">
+                      🪙 Jumlah Token Generate AI (+Token) *
+                    </label>
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        inputMode="numeric"
+                        placeholder="0"
+                        value={keyAiTokens}
+                        onChange={(e) => setKeyAiTokens(cleanNumberInput(e.target.value))}
+                        className="w-full bg-amber-50/60 border border-amber-300 rounded-xl px-3 py-2.5 text-xs font-black text-slate-900"
+                      />
+                      <div className="flex gap-1 shrink-0">
+                        {[5, 10, 25, 50].map((num) => (
+                          <button
+                            key={num}
+                            type="button"
+                            onClick={() => setKeyAiTokens(String(num))}
+                            className={`px-2.5 py-2 rounded-xl text-xs font-bold border transition cursor-pointer ${
+                              keyAiTokens === String(num)
+                                ? 'bg-amber-500 text-slate-950 border-amber-500'
+                                : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
+                            }`}
+                          >
+                            +{num}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {voucherType === 'extend_days' && (
+                  <>
+                    <div>
+                      <label className="block text-[10px] font-bold text-cyan-700 uppercase mb-1">
+                        ⏳ Tambah Masa Aktif (+Hari) *
+                      </label>
+                      <input
+                        type="text"
+                        inputMode="numeric"
+                        placeholder="0"
+                        value={keyDays}
+                        onChange={(e) => setKeyDays(cleanNumberInput(e.target.value))}
+                        className="w-full bg-cyan-50/50 border border-cyan-300 rounded-xl px-3 py-2.5 text-xs font-bold"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">
+                        Bonus Token AI (Opsional, 0 jika tanpa)
+                      </label>
+                      <input
+                        type="text"
+                        inputMode="numeric"
+                        placeholder="0"
+                        value={keyAiTokens}
+                        onChange={(e) => setKeyAiTokens(cleanNumberInput(e.target.value))}
+                        className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-xs font-bold"
+                      />
+                    </div>
+                  </>
+                )}
+
+                {voucherType === 'plan' && (
+                  <>
+                    <div>
+                      <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Paket Langganan</label>
+                      <select
+                        value={keyPlan}
+                        onChange={(e) => handleKeyPlanChange(e.target.value as PaidPlanCode)}
+                        className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-xs font-bold"
+                      >
+                        <option value="basic">
+                          Basic — {formatIdr(SUBSCRIPTION_PLANS.basic.price)} ({SUBSCRIPTION_PLANS.basic.durationDays} Hari)
+                        </option>
+                        <option value="pro">
+                          Pro (Most Popular) — {formatIdr(SUBSCRIPTION_PLANS.pro.price)} ({SUBSCRIPTION_PLANS.pro.durationDays} Hari)
+                        </option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Masa Aktif (Hari) *</label>
+                      <input
+                        type="text"
+                        inputMode="numeric"
+                        placeholder="0"
+                        value={keyDays}
+                        onChange={(e) => setKeyDays(cleanNumberInput(e.target.value))}
+                        className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-xs font-bold"
+                      />
+                    </div>
+                  </>
+                )}
+
                 <div>
-                  <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Paket</label>
-                  <select
-                    value={keyPlan}
-                    onChange={(e) => handleKeyPlanChange(e.target.value as PaidPlanCode)}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-xs font-bold"
-                  >
-                    <option value="basic">
-                      Basic — {formatIdr(SUBSCRIPTION_PLANS.basic.price)} ({SUBSCRIPTION_PLANS.basic.durationDays} Hari)
-                    </option>
-                    <option value="pro">
-                      Pro (Most Popular) — {formatIdr(SUBSCRIPTION_PLANS.pro.price)} ({SUBSCRIPTION_PLANS.pro.durationDays} Hari)
-                    </option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Masa Aktif (Hari)</label>
+                  <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Maks Pemakaian *</label>
                   <input
-                    type="number"
-                    min={1}
-                    max={3650}
-                    value={keyDays}
-                    onChange={(e) => setKeyDays(Number(e.target.value) || 30)}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-xs font-bold"
-                  />
-                </div>
-                <div>
-                  <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Maks Pemakaian</label>
-                  <input
-                    type="number"
-                    min={1}
-                    max={100}
+                    type="text"
+                    inputMode="numeric"
+                    placeholder="1"
                     value={keyMaxUses}
-                    onChange={(e) => setKeyMaxUses(Number(e.target.value) || 1)}
+                    onChange={(e) => setKeyMaxUses(cleanNumberInput(e.target.value))}
                     className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-xs font-bold"
                   />
                 </div>
                 <Button htmlType="submit" type="primary" loading={generatingKey} className="bg-emerald-600 border-none h-10 rounded-xl font-bold text-xs">
-                  Generate Kode
+                  Generate Kode Voucher
                 </Button>
               </form>
 
@@ -639,7 +975,7 @@ export default function SuperadminPage() {
                 <div className="bg-emerald-50 border border-emerald-200 p-4 rounded-2xl flex items-center justify-between gap-3">
                   <div>
                     <div className="text-[11px] font-bold text-emerald-700 uppercase">
-                      Salin Kode Lisensi Sekarang (Hanya Ditampilkan Sekali):
+                      Salin Kode Voucher / Lisensi Sekarang (Hanya Ditampilkan Sekali):
                     </div>
                     <div className="text-lg font-mono font-black text-emerald-900">
                       {latestGeneratedCode}
@@ -649,10 +985,10 @@ export default function SuperadminPage() {
                     icon={<CopyOutlined />}
                     onClick={() => {
                       navigator.clipboard.writeText(latestGeneratedCode);
-                      message.success('Kode disalin!');
+                      message.success('Kode voucher berhasil disalin!');
                     }}
                   >
-                    Salin
+                    Salin Kode
                   </Button>
                 </div>
               )}
@@ -727,11 +1063,11 @@ export default function SuperadminPage() {
                 <option value="pro">Pro (1 Tahun)</option>
               </select>
               <input
-                type="number"
-                min={1}
-                max={3650}
+                type="text"
+                inputMode="numeric"
+                placeholder="0"
                 value={durationDays}
-                onChange={(e) => setDurationDays(Number(e.target.value) || 1)}
+                onChange={(e) => setDurationDays(cleanNumberInput(e.target.value))}
                 className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold"
               />
             </div>
@@ -888,11 +1224,11 @@ export default function SuperadminPage() {
                   Tambah Masa Aktif (Hari, 0 jika tetap)
                 </label>
                 <input
-                  type="number"
-                  min={0}
-                  max={3650}
+                  type="text"
+                  inputMode="numeric"
+                  placeholder="0"
                   value={extendDays}
-                  onChange={(e) => setExtendDays(Math.max(0, Number(e.target.value) || 0))}
+                  onChange={(e) => setExtendDays(cleanNumberInput(e.target.value))}
                   className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold"
                 />
               </div>
@@ -901,11 +1237,11 @@ export default function SuperadminPage() {
                   🪙 Tambah Token AI Top-Up (+Token)
                 </label>
                 <input
-                  type="number"
-                  min={0}
-                  max={10000}
+                  type="text"
+                  inputMode="numeric"
+                  placeholder="0"
                   value={topupAiCredits}
-                  onChange={(e) => setTopupAiCredits(Math.max(0, Number(e.target.value) || 0))}
+                  onChange={(e) => setTopupAiCredits(cleanNumberInput(e.target.value))}
                   className="w-full bg-indigo-50/70 border border-indigo-200 rounded-xl px-3 py-2 text-xs font-bold text-indigo-900"
                 />
               </div>
@@ -919,6 +1255,116 @@ export default function SuperadminPage() {
               </div>
             )}
           </div>
+        </Modal>
+
+        {/* Modal Preview Detail Voucher & Lisensi */}
+        <Modal
+          open={!!previewVoucher}
+          onCancel={() => setPreviewVoucher(null)}
+          footer={null}
+          title="🎟️ Preview Voucher / Kode Lisensi"
+          centered
+        >
+          {previewVoucher && (() => {
+            const benefitText =
+              previewVoucher.voucher_type === 'ai_tokens'
+                ? `+${previewVoucher.ai_tokens} Token Generate AI (Rollover / Tidak Hangus)`
+                : previewVoucher.voucher_type === 'extend_days'
+                ? `+${previewVoucher.duration_days} Hari Masa Aktif${
+                    previewVoucher.ai_tokens > 0
+                      ? ` • +${previewVoucher.ai_tokens} Token AI`
+                      : ''
+                  }`
+                : `Lisensi Paket ${previewVoucher.plan_code.toUpperCase()} (${
+                    previewVoucher.duration_days
+                  } Hari)${
+                    previewVoucher.ai_tokens > 0
+                      ? ` • +${previewVoucher.ai_tokens} Token AI`
+                      : ''
+                  }`;
+
+            const shareText = [
+              '🎟️ *KODE VOUCHER / LISENSI SCOUTFN*',
+              '',
+              `• *Kode Voucher:* ${previewVoucher.code_preview}`,
+              `• *Benefit:* ${benefitText}`,
+              '',
+              'Cara Klaim:',
+              '1. Login sebagai Admin Sekolah di ScoutFN',
+              '2. Buka menu *Pembayaran & Invoice*',
+              '3. Masukkan kode di atas pada kolom *Klaim Kode Voucher / Lisensi* lalu klik Klaim.',
+            ].join('\n');
+
+            return (
+              <div className="space-y-4 pt-2">
+                <div className="bg-emerald-50 border-2 border-emerald-200 rounded-2xl p-4 text-center space-y-2">
+                  <div className="text-[11px] font-extrabold uppercase tracking-wider text-emerald-700">
+                    Kode Voucher Lengkap
+                  </div>
+                  <div className="font-mono text-xl font-black text-emerald-950 tracking-wider select-all">
+                    {previewVoucher.code_preview}
+                  </div>
+                  <div className="pt-1">
+                    <Button
+                      type="primary"
+                      icon={<CopyOutlined />}
+                      onClick={() => {
+                        navigator.clipboard.writeText(previewVoucher.code_preview);
+                        message.success(`Kode ${previewVoucher.code_preview} berhasil disalin!`);
+                      }}
+                      className="bg-emerald-600 hover:!bg-emerald-700 border-none rounded-xl text-xs font-bold"
+                    >
+                      Salin Kode Voucher
+                    </Button>
+                  </div>
+                </div>
+
+                <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 space-y-2 text-xs">
+                  <div className="flex items-center justify-between">
+                    <span className="text-slate-500 font-semibold">Jenis Voucher:</span>
+                    <span className="font-bold text-slate-900 uppercase">
+                      {previewVoucher.voucher_type === 'ai_tokens'
+                        ? '🪙 Token Generate AI'
+                        : previewVoucher.voucher_type === 'extend_days'
+                        ? '⏳ Tambahan Masa Aktif'
+                        : `🏫 Lisensi Paket ${previewVoucher.plan_code}`}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-slate-500 font-semibold">Isi Benefit:</span>
+                    <span className="font-black text-indigo-700">{benefitText}</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-slate-500 font-semibold">Kuota Pemakaian:</span>
+                    <span className="font-mono font-bold text-slate-800">
+                      {previewVoucher.used_count} / {previewVoucher.max_uses} terpakai
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-slate-500 font-semibold">Status:</span>
+                    <Tag
+                      color={previewVoucher.is_active ? 'green' : 'default'}
+                      className="m-0 text-[10px] font-bold uppercase"
+                    >
+                      {previewVoucher.is_active ? 'Tersedia / Aktif' : 'Sudah Terpakai / Nonaktif'}
+                    </Tag>
+                  </div>
+                </div>
+
+                <Button
+                  block
+                  icon={<CopyOutlined />}
+                  onClick={() => {
+                    navigator.clipboard.writeText(shareText);
+                    message.success('Pesan voucher siap kirim berhasil disalin!');
+                  }}
+                  className="h-10 rounded-xl font-bold text-xs"
+                >
+                  📋 Salin Pesan Lengkap (Siap Kirim ke WA Sekolah)
+                </Button>
+              </div>
+            );
+          })()}
         </Modal>
       </div>
     </div>

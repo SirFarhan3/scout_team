@@ -71,6 +71,20 @@ async function main() {
       // Kolom ai_topup_credits sudah ada
     }
     try {
+      await client.execute(
+        "ALTER TABLE license_keys ADD COLUMN voucher_type TEXT NOT NULL DEFAULT 'plan'"
+      );
+    } catch {
+      // Kolom voucher_type sudah ada
+    }
+    try {
+      await client.execute(
+        'ALTER TABLE license_keys ADD COLUMN ai_tokens INTEGER NOT NULL DEFAULT 0'
+      );
+    } catch {
+      // Kolom ai_tokens sudah ada
+    }
+    try {
       await client.execute(`
         UPDATE schools
         SET

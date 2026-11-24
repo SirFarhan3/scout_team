@@ -74,7 +74,19 @@ export default function Header({
 
   const isSuperadmin = currentUser?.role === 'superadmin';
   const isAdmin = currentUser?.role === 'admin';
+  const usage = currentUser?.usage;
   const showPaywallBanner = Boolean(school && !school.subscription_active);
+  const isExpiringSoon = Boolean(
+    school && school.subscription_active && school.remaining_days <= 3
+  );
+  const studentUsageRatio =
+    school && usage && school.max_students > 0
+      ? usage.student_count / school.max_students
+      : 0;
+  const isNearStudentQuota = Boolean(
+    school && school.subscription_active && studentUsageRatio >= 0.9
+  );
+  const showReminderBanner = !showPaywallBanner && (isExpiringSoon || isNearStudentQuota);
 
   const roleLabel =
     currentUser?.role === 'instruktur' ? 'Pembantu Pembina' : currentUser?.role || '';
@@ -87,7 +99,7 @@ export default function Header({
         ]
       : []),
     ...(isAdmin
-      ? [{ key: 'billing', icon: <CreditCardOutlined />, label: 'Billing & Langganan' }]
+      ? [{ key: 'billing', icon: <CreditCardOutlined />, label: 'Pembayaran & Invoice' }]
       : []),
     { key: 'ganti-password', icon: <KeyOutlined />, label: 'Ganti Password' },
     { type: 'divider' as const },
@@ -170,9 +182,39 @@ export default function Header({
               href="/billing"
               className="bg-white text-rose-700 hover:bg-rose-50 text-xs font-black px-4 py-2 rounded-xl transition shrink-0"
             >
-              Aktifkan / Bayar Sekarang →
+              Pembayaran & Invoice →
             </a>
           )}
+        </div>
+      )}
+
+      {showReminderBanner && (
+        <div className="bg-amber-500 text-slate-950 rounded-2xl px-4 py-2.5 shadow-sm flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
+          <div className="text-xs font-semibold">
+            <strong className="font-black">⚠️ Pengingat Langganan & Kuota:</strong>{' '}
+            {isExpiringSoon && (
+              <span>
+                Masa aktif paket <strong>{school?.subscription_plan.toUpperCase()}</strong> tersisa{' '}
+                <strong>{school?.remaining_days} hari</strong> lagi.{' '}
+              </span>
+            )}
+            {isNearStudentQuota && (
+              <span>
+                Kuota peserta sudah terpakai{' '}
+                <strong>
+                  {usage?.student_count}/{school?.max_students} peserta (
+                  {Math.round(studentUsageRatio * 100)}%)
+                </strong>
+                .
+              </span>
+            )}
+          </div>
+          <a
+            href="/billing"
+            className="bg-slate-950 text-white hover:bg-slate-800 text-[11px] font-black px-3.5 py-1.5 rounded-xl transition shrink-0"
+          >
+            Buka Pembayaran & Invoice →
+          </a>
         </div>
       )}
 

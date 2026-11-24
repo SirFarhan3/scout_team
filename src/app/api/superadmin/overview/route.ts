@@ -1,5 +1,7 @@
+import crypto from 'crypto';
 import { NextResponse } from 'next/server';
-import { dbAll, toBool } from '@/lib/turso';
+import { dbAll, dbExec, toBool } from '@/lib/turso';
+import { listAllInvoices } from '@/lib/invoices';
 import { handleApiError, requireAuth, toSchoolDTO } from '@/lib/authServer';
 
 export async function GET() {
@@ -30,23 +32,14 @@ export async function GET() {
          WHERE school_id IS NOT NULL AND role = 'admin'
          ORDER BY created_at ASC`
       ),
+      listAllInvoices(150),
       dbAll<Record<string, unknown>>(
-          `SELECT i.id, i.invoice_number, i.school_id, i.plan_code, i.billing_cycle,
-                  i.amount_idr, i.status, i.payment_method, i.payment_reference,
-                  i.payer_note, i.admin_note, i.verified_at, i.created_at,
-                  s.name AS school_name
-           FROM subscription_invoices i
-           LEFT JOIN schools s ON s.id = i.school_id
-           ORDER BY i.created_at DESC
-           LIMIT 100`
-        ),
-        dbAll<Record<string, unknown>>(
-          `SELECT id, code_preview, plan_code, duration_days, max_uses, used_count,
-                  is_active, expires_at, redeemed_by_school_id, redeemed_at, created_at
-           FROM license_keys
-           ORDER BY created_at DESC
-           LIMIT 100`
-        ),
+        `SELECT id, code_preview, voucher_type, plan_code, duration_days, ai_tokens,
+                max_uses, used_count, is_active, expires_at, redeemed_by_school_id, redeemed_at, created_at
+         FROM license_keys
+         ORDER BY created_at DESC
+         LIMIT 100`
+      ),
         dbAll<Record<string, unknown>>(
           `SELECT id, school_id, user_id, action, target_type, target_id, ip_address, created_at
            FROM security_audit_logs
@@ -93,20 +86,41 @@ export async function GET() {
       };
     });
 
-    const formattedInvoices = invoices.map((inv) => ({
-      ...inv,
-      school_name: inv.school_name ? String(inv.school_name) : '-',
-    }));
-
-    const formattedLicenseKeys = licenseKeys.map((k) => ({
-      ...k,
-      is_active: toBool(k.is_active),
-    }));
+    const formattedLicenseKeys = await Promise.all(
+      licenseKeys.map(async (k) => {
+        let codePreview = String(k.code_preview || '');
+        if (codePreview.includes('*')) {
+          const prefix = /^[A-Z]{3}/.test(codePreview) ? codePreview.slice(0, 3) : 'SCT';
+          const suffix = /[A-Z0-9]{4}$/.test(codePreview)
+            ? codePreview.slice(-4)
+            : crypto.randomBytes(2).toString('hex').toUpperCase();
+          const mid1 = crypto.randomBytes(2).toString('hex').toUpperCase();
+          const mid2 = crypto.randomBytes(2).toString('hex').toUpperCase();
+          const repairedCode = `${prefix}-${mid1}-${mid2}-${suffix}`;
+          const repairedHash = crypto
+            .createHash('sha256')
+            .update(repairedCode)
+            .digest('hex');
+          await dbExec(
+            `UPDATE license_keys SET code_preview = ?, code_hash = ? WHERE id = ?`,
+            [repairedCode, repairedHash, String(k.id)]
+          );
+          codePreview = repairedCode;
+        }
+        return {
+          ...k,
+          code_preview: codePreview,
+          voucher_type: k.voucher_type ? String(k.voucher_type) : 'plan',
+          ai_tokens: Number(k.ai_tokens) || 0,
+          is_active: toBool(k.is_active),
+        };
+      })
+    );
 
     return NextResponse.json({
       success: true,
       schools: enrichedSchools,
-      invoices: formattedInvoices,
+      invoices,
       licenseKeys: formattedLicenseKeys,
       auditLogs,
     });

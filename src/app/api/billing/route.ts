@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
-import { dbAll, dbOne } from '@/lib/turso';
+import { dbOne } from '@/lib/turso';
 import { PAID_PLANS } from '@/lib/plans';
+import { AI_TOPUP_PACKAGE_LIST } from '@/lib/payment-config';
+import { listSchoolInvoices } from '@/lib/invoices';
 import { handleApiError, requireAuth } from '@/lib/authServer';
 
 export async function GET() {
@@ -14,15 +16,7 @@ export async function GET() {
       dbOne<{ cnt: number }>(`SELECT COUNT(*) AS cnt FROM users WHERE school_id = ?`, [
         ctx.school!.id,
       ]),
-      dbAll<Record<string, unknown>>(
-        `SELECT id, invoice_number, school_id, plan_code, billing_cycle, amount_idr, status,
-                payment_method, payment_reference, payer_note, admin_note, verified_at, created_at
-         FROM subscription_invoices
-         WHERE school_id = ?
-         ORDER BY created_at DESC
-         LIMIT 30`,
-        [ctx.school!.id]
-      ),
+      listSchoolInvoices(ctx.school!.id, 50),
     ]);
 
     return NextResponse.json({
@@ -33,6 +27,7 @@ export async function GET() {
         user_count: Number(userRes?.cnt) || 0,
       },
       plans: PAID_PLANS,
+      topupPackages: AI_TOPUP_PACKAGE_LIST,
       invoices: invoices || [],
     });
   } catch (error) {

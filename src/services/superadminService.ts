@@ -6,6 +6,7 @@ import type {
   SchoolDTO,
   SubscriptionPlanCode,
   SubscriptionStatus,
+  VoucherType,
 } from '@/types/school';
 
 export interface SuperadminSchoolItem extends SchoolDTO {
@@ -82,7 +83,7 @@ export const superadminService = {
     );
   },
 
-  async processInvoice(id: string, action: 'approve' | 'reject', adminNote?: string) {
+  async processInvoice(id: string, action: 'approve' | 'reject' | 'mark_paid' | 'cancel', adminNote?: string) {
     return apiFetch<{ success: true; invoice: InvoiceDTO }>(
       `/api/superadmin/invoices/${encodeURIComponent(id)}`,
       {
@@ -93,8 +94,10 @@ export const superadminService = {
   },
 
   async generateLicenseKey(input: {
-    planCode: PaidPlanCode;
-    durationDays: number;
+    voucherType?: VoucherType;
+    planCode?: PaidPlanCode;
+    durationDays?: number;
+    aiTokens?: number;
     maxUses?: number;
   }) {
     return apiFetch<{ success: true; plainCode: string; licenseKey: LicenseKeyDTO }>(

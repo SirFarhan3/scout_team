@@ -63,7 +63,12 @@ export async function proxy(request: NextRequest) {
 
   // 3. Isolasi Superadmin vs Tenant Sekolah
   if (session) {
-    if (session.role === 'superadmin' && pathname !== '/superadmin' && !pathname.startsWith('/superadmin/')) {
+    if (
+      session.role === 'superadmin' &&
+      pathname !== '/superadmin' &&
+      !pathname.startsWith('/superadmin/') &&
+      !pathname.startsWith('/invoice/')
+    ) {
       const res = NextResponse.redirect(new URL('/superadmin', request.url));
       res.headers.set('Content-Security-Policy', cspHeaderValue);
       return res;

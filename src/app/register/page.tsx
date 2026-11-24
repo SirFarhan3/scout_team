@@ -42,7 +42,9 @@ export default function RegisterSchoolPage() {
         billingCycle: selectedPlan === 'pro' ? 'yearly' : 'monthly',
       });
 
-      if (result.user.school?.subscription_active) {
+      if (result.invoice && typeof result.invoice.id === 'string') {
+        window.location.href = `/invoice/${result.invoice.id}`;
+      } else if (result.user.school?.subscription_active) {
         window.location.href = '/';
       } else {
         window.location.href = '/billing';

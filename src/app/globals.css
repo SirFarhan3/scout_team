@@ -196,8 +196,17 @@ html.dark .bg-white\/80 {
 }
 
 html.dark .bg-slate-50,
+html.dark .bg-slate-50\/50,
+html.dark .bg-slate-50\/60,
 html.dark .bg-slate-50\/70 {
   background-color: #121927 !important;
+}
+
+html.dark .bg-slate-200,
+html.dark .bg-slate-200\/70,
+html.dark .bg-slate-200\/80 {
+  background-color: #243047 !important;
+  color: #e2e8f0 !important;
 }
 
 html.dark .text-slate-900,
@@ -244,11 +253,14 @@ html.dark textarea::placeholder {
 
 /* Badge Pastel di Dark Mode: warna pastel cerah lembut dengan latar semi-transparan */
 html.dark .bg-indigo-50,
+html.dark .bg-indigo-50\/30,
+html.dark .bg-indigo-50\/40,
+html.dark .bg-indigo-50\/70,
 html.dark .bg-indigo-100,
 html.dark .bg-indigo-100\/70 {
   background-color: rgba(124, 131, 247, 0.16) !important;
-  color: #b4bcff !important;
-  border-color: rgba(124, 131, 247, 0.32) !important;
+  color: #e0e7ff !important;
+  border-color: rgba(124, 131, 247, 0.35) !important;
 }
 
 html.dark .text-indigo-600,
@@ -272,7 +284,9 @@ html.dark .text-emerald-800 {
 }
 
 html.dark .bg-amber-50,
+html.dark .bg-amber-50\/40,
 html.dark .bg-amber-50\/50,
+html.dark .bg-amber-50\/60,
 html.dark .bg-amber-50\/70,
 html.dark .bg-amber-100,
 html.dark .bg-amber-100\/70 {
@@ -319,4 +333,95 @@ html.dark .from-emerald-50 {
 html.dark .via-white,
 html.dark .to-white {
   --tw-gradient-to: #171f30 !important;
+}
+
+/* =========================================================
+   PRINT / SAVE AS PDF: BERSIH PUTIH TANPA BACKGROUND GELAP/WARNA
+   ========================================================= */
+@media print {
+  html,
+  html.dark,
+  body,
+  html.dark body {
+    background: #ffffff !important;
+    background-color: #ffffff !important;
+    color: #0f172a !important;
+    color-scheme: light !important;
+    height: auto !important;
+    min-height: 0 !important;
+    overflow: visible !important;
+  }
+
+  .invoice-print-wrapper,
+  html.dark .invoice-print-wrapper,
+  .invoice-print-sheet,
+  html.dark .invoice-print-sheet,
+  .invoice-print-sheet *,
+  html.dark .invoice-print-sheet * {
+    background: transparent !important;
+    background-color: transparent !important;
+    box-shadow: none !important;
+  }
+
+  .invoice-print-sheet,
+  html.dark .invoice-print-sheet {
+    background: #ffffff !important;
+    background-color: #ffffff !important;
+    color: #0f172a !important;
+    border: none !important;
+  }
+
+  .invoice-print-sheet .text-slate-900,
+  .invoice-print-sheet .text-slate-800,
+  .invoice-print-sheet .text-white,
+  html.dark .invoice-print-sheet .text-slate-900,
+  html.dark .invoice-print-sheet .text-slate-800,
+  html.dark .invoice-print-sheet .text-white {
+    color: #0f172a !important;
+  }
+
+  .invoice-print-sheet .text-slate-700,
+  .invoice-print-sheet .text-slate-600,
+  .invoice-print-sheet .text-slate-500,
+  .invoice-print-sheet .text-slate-400,
+  html.dark .invoice-print-sheet .text-slate-700,
+  html.dark .invoice-print-sheet .text-slate-600,
+  html.dark .invoice-print-sheet .text-slate-500,
+  html.dark .invoice-print-sheet .text-slate-400 {
+    color: #334155 !important;
+  }
+
+  .invoice-print-sheet .text-indigo-600,
+  .invoice-print-sheet .text-indigo-700,
+  .invoice-print-sheet .text-indigo-800,
+  html.dark .invoice-print-sheet .text-indigo-600,
+  html.dark .invoice-print-sheet .text-indigo-700,
+  html.dark .invoice-print-sheet .text-indigo-800 {
+    color: #1e293b !important;
+  }
+
+  .invoice-print-sheet .text-emerald-600,
+  .invoice-print-sheet .text-emerald-700,
+  .invoice-print-sheet .text-emerald-800,
+  html.dark .invoice-print-sheet .text-emerald-600,
+  html.dark .invoice-print-sheet .text-emerald-700,
+  html.dark .invoice-print-sheet .text-emerald-800 {
+    color: #047857 !important;
+  }
+
+  .invoice-print-sheet .border-slate-200,
+  .invoice-print-sheet .border-indigo-200,
+  html.dark .invoice-print-sheet .border-slate-200,
+  html.dark .invoice-print-sheet .border-indigo-200 {
+    border-color: #cbd5e1 !important;
+  }
+
+  .invoice-print-sheet .border-slate-900,
+  html.dark .invoice-print-sheet .border-slate-900 {
+    border-color: #0f172a !important;
+  }
+
+  .invoice-print-sheet thead tr {
+    border-bottom: 2px solid #0f172a !important;
+  }
 }
