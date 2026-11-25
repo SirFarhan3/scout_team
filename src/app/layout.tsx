@@ -4,6 +4,7 @@ import { headers } from "next/headers";
 import "./globals.css";
 import ThemeProvider from "@/components/ThemeProvider";
 import AiChatWidget from "@/components/ai-chat-widget";
+import OfflineSyncManager from "@/components/OfflineSyncManager";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -18,6 +19,7 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "ScoutFN — Scout Management Portal",
   description: "Platform SaaS Manajemen Kepramukaan, Presensi QR, Translasi Sandi & Laporan Gugusdepan Sekolah",
+  manifest: "/manifest.json",
   icons: {
     icon: "/app_logo.jpg",
     shortcut: "/app_logo.jpg",
@@ -60,6 +62,7 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
       <body className="min-h-full flex flex-col">
         <ThemeProvider>
           {children}
+          <OfflineSyncManager />
           <AiChatWidget />
         </ThemeProvider>
       </body>

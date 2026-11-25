@@ -11,6 +11,10 @@ interface NativeQrScannerProps {
   lastScannedResult: AttendanceRecord | null;
 }
 
+const DECODE_INTERVAL_MS = 150;
+const MAX_DECODE_WIDTH = 640;
+const SCAN_COOLDOWN_MS = 1500;
+
 export default function NativeQrScanner({
   onScanSuccess,
   processing,
@@ -23,32 +27,37 @@ export default function NativeQrScanner({
   const [cameraActive, setCameraActive] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
+  const onScanSuccessRef = useRef(onScanSuccess);
   const isProcessingRef = useRef(false);
   const isCooldownRef = useRef(false);
+  const cooldownTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    onScanSuccessRef.current = onScanSuccess;
+  }, [onScanSuccess]);
 
   useEffect(() => {
     isProcessingRef.current = processing;
   }, [processing]);
 
-  const handleDetectedCode = useCallback(
-    async (code: string) => {
-      if (isProcessingRef.current || isCooldownRef.current) return;
+  const handleDetectedCode = useCallback(async (code: string) => {
+    if (isProcessingRef.current || isCooldownRef.current) return;
 
-      isCooldownRef.current = true;
-      try {
-        await onScanSuccess(code);
-      } finally {
-        setTimeout(() => {
-          isCooldownRef.current = false;
-        }, 2500);
+    isCooldownRef.current = true;
+    try {
+      await onScanSuccessRef.current(code);
+    } finally {
+      if (cooldownTimerRef.current) {
+        clearTimeout(cooldownTimerRef.current);
       }
-    },
-    [onScanSuccess]
-  );
+      cooldownTimerRef.current = setTimeout(() => {
+        isCooldownRef.current = false;
+      }, SCAN_COOLDOWN_MS);
+    }
+  }, []);
 
   const initCamera = useCallback(async () => {
     try {
-      setErrorMessage(null);
       const stream = await navigator.mediaDevices.getUserMedia({
         video: {
           facingMode: { ideal: 'environment' },
@@ -57,20 +66,22 @@ export default function NativeQrScanner({
         },
       });
 
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-        videoRef.current.setAttribute('playsinline', 'true');
+      setErrorMessage(null);
+      const video = videoRef.current;
+      if (video) {
+        video.srcObject = stream;
+        video.setAttribute('playsinline', 'true');
 
         try {
-          await videoRef.current.play();
+          await video.play();
           setCameraActive(true);
-        } catch (playError: any) {
-          if (playError.name !== 'AbortError') {
+        } catch (playError: unknown) {
+          if (playError instanceof Error && playError.name !== 'AbortError') {
             console.error('Video play interrupted:', playError);
           }
         }
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Camera Access Error:', err);
       setErrorMessage(
         'Izin kamera belum diberikan atau terblokir. Silakan izinkan akses kamera di ikon gembok browser.'
@@ -79,33 +90,48 @@ export default function NativeQrScanner({
   }, []);
 
   useEffect(() => {
-    let animId: number;
+    let animId = 0;
+    let lastDecodeAt = 0;
+    const videoEl = videoRef.current;
 
-    initCamera();
+    const startTimer = setTimeout(() => {
+      void initCamera();
+    }, 0);
 
-    const processFrame = () => {
+    const processFrame = (now: number) => {
       const video = videoRef.current;
       const canvas = canvasRef.current;
 
+      // Skip decode saat sedang memproses/cooldown & throttle ke ~6-7 FPS agar main thread tidak lag
       if (
+        !isProcessingRef.current &&
+        !isCooldownRef.current &&
+        now - lastDecodeAt >= DECODE_INTERVAL_MS &&
         video &&
         canvas &&
         video.readyState === video.HAVE_ENOUGH_DATA &&
         video.videoWidth > 0
       ) {
+        lastDecodeAt = now;
         const ctx = canvas.getContext('2d', { willReadFrequently: true });
         if (ctx) {
-          canvas.width = video.videoWidth;
-          canvas.height = video.videoHeight;
-          ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+          const scale = Math.min(1, MAX_DECODE_WIDTH / video.videoWidth);
+          const targetWidth = Math.max(1, Math.round(video.videoWidth * scale));
+          const targetHeight = Math.max(1, Math.round(video.videoHeight * scale));
 
-          const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+          if (canvas.width !== targetWidth || canvas.height !== targetHeight) {
+            canvas.width = targetWidth;
+            canvas.height = targetHeight;
+          }
+
+          ctx.drawImage(video, 0, 0, targetWidth, targetHeight);
+          const imageData = ctx.getImageData(0, 0, targetWidth, targetHeight);
           const qrCode = jsQR(imageData.data, imageData.width, imageData.height, {
-            inversionAttempts: 'attemptBoth',
+            inversionAttempts: 'dontInvert',
           });
 
-          if (qrCode && qrCode.data && qrCode.data.trim()) {
-            handleDetectedCode(qrCode.data.trim());
+          if (qrCode?.data?.trim()) {
+            void handleDetectedCode(qrCode.data.trim());
           }
         }
       }
@@ -113,14 +139,18 @@ export default function NativeQrScanner({
       animId = requestAnimationFrame(processFrame);
     };
 
-    processFrame();
+    animId = requestAnimationFrame(processFrame);
 
     return () => {
+      clearTimeout(startTimer);
       cancelAnimationFrame(animId);
-      if (videoRef.current && videoRef.current.srcObject) {
-        const stream = videoRef.current.srcObject as MediaStream;
+      if (cooldownTimerRef.current) {
+        clearTimeout(cooldownTimerRef.current);
+      }
+      if (videoEl && videoEl.srcObject) {
+        const stream = videoEl.srcObject as MediaStream;
         stream.getTracks().forEach((track) => track.stop());
-        videoRef.current.srcObject = null;
+        videoEl.srcObject = null;
       }
     };
   }, [initCamera, handleDetectedCode]);
@@ -139,7 +169,6 @@ export default function NativeQrScanner({
       </div>
 
       <div className="relative overflow-hidden rounded-2xl bg-slate-950 w-full min-h-[300px] max-h-[360px] flex items-center justify-center border border-slate-200">
-        {/* 🚫 Efek mirror (scale-x-[-1]) sudah dihapus agar posisi normal */}
         <video
           ref={videoRef}
           className="w-full h-full object-cover min-h-[300px]"
@@ -195,7 +224,7 @@ export default function NativeQrScanner({
 
       {lastScannedResult && !scanError && (
         lastScannedResult.alreadyRecorded ? (
-          <div className="bg-amber-50 border border-amber-200 text-amber-900 p-4 rounded-2xl space-y-1.5 animate-in fade-in duration-300">
+          <div className="bg-amber-50 border border-amber-200 text-amber-900 p-4 rounded-2xl space-y-1.5">
             <div className="flex justify-between items-center">
               <span className="text-[10px] font-black uppercase bg-amber-200 text-amber-800 px-2.5 py-0.5 rounded-full">
                 Sudah Hadir Hari Ini ⚠️
@@ -215,10 +244,10 @@ export default function NativeQrScanner({
             </p>
           </div>
         ) : (
-          <div className="bg-emerald-50 border border-emerald-200 text-emerald-800 p-4 rounded-2xl space-y-1 animate-in fade-in duration-300">
+          <div className="bg-emerald-50 border border-emerald-200 text-emerald-800 p-4 rounded-2xl space-y-1">
             <div className="flex justify-between items-center">
               <span className="text-[10px] font-black uppercase bg-emerald-200 text-emerald-800 px-2 py-0.5 rounded">
-                Berhasil Presensi! ✅
+                {lastScannedResult.isOfflinePending ? 'Tersimpan Offline! 📥' : 'Berhasil Presensi! ✅'}
               </span>
               <span className="text-xs font-mono font-bold">
                 {new Date(lastScannedResult.created_at).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })} WIB

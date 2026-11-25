@@ -145,6 +145,11 @@ export async function getDb(): Promise<Client> {
         // Kolom ai_tokens sudah ada
       }
       try {
+        await client.execute('ALTER TABLE attendance ADD COLUMN synced_at TEXT');
+      } catch {
+        // Kolom synced_at sudah ada
+      }
+      try {
         await client.execute(`
           CREATE TABLE IF NOT EXISTS ai_chat_messages (
             id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(4)) || '-' || hex(randomblob(2)) || '-4' || substr(hex(randomblob(2)), 2) || '-' || substr('89ab', 1 + (abs(random()) % 4), 1) || substr(hex(randomblob(2)), 2) || '-' || hex(randomblob(6)))),

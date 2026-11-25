@@ -184,7 +184,8 @@ CREATE TABLE IF NOT EXISTS attendance (
   recorded_by TEXT REFERENCES users(id) ON DELETE SET NULL,
   status TEXT NOT NULL DEFAULT 'Hadir'
     CHECK (status IN ('Hadir', 'Izin', 'Sakit', 'Tanpa Keterangan', 'Tidak Hadir')),
-  created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+  created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+  synced_at TEXT
 );
 
 CREATE INDEX IF NOT EXISTS idx_attendance_school_created

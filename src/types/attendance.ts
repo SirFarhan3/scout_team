@@ -6,7 +6,9 @@ export interface AttendanceRecord {
   recorded_by: string;
   status: AttendanceStatus;
   created_at: string;
+  synced_at?: string | null;
   alreadyRecorded?: boolean;
+  isOfflinePending?: boolean;
   student?: {
     full_name: string;
     class_name: string;

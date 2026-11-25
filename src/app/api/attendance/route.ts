@@ -25,6 +25,7 @@ function formatAttendanceRow(row: Record<string, unknown>) {
     recorded_by: row.recorded_by ? String(row.recorded_by) : null,
     status: String(row.status),
     created_at: String(row.created_at),
+    synced_at: row.synced_at ? String(row.synced_at) : null,
     student: row._s_full_name
       ? {
           full_name: String(row._s_full_name),
@@ -43,7 +44,7 @@ async function fetchJoinedAttendanceById(
   attendanceId: string
 ): Promise<ReturnType<typeof formatAttendanceRow> | null> {
   const row = await dbOne<Record<string, unknown>>(
-    `SELECT a.id, a.student_id, a.recorded_by, a.status, a.created_at,
+    `SELECT a.id, a.student_id, a.recorded_by, a.status, a.created_at, a.synced_at,
             s.full_name AS _s_full_name, s.class_name AS _s_class_name,
             s.qr_code_id AS _s_qr_code_id, s.team_id AS _s_team_id,
             t.name AS _t_name
@@ -79,7 +80,7 @@ export async function GET(request: Request) {
 
     if (mode === 'recent') {
       const rows = await dbAll<Record<string, unknown>>(
-        `SELECT a.id, a.student_id, a.recorded_by, a.status, a.created_at,
+        `SELECT a.id, a.student_id, a.recorded_by, a.status, a.created_at, a.synced_at,
                 s.full_name AS _s_full_name, s.class_name AS _s_class_name,
                 s.qr_code_id AS _s_qr_code_id, s.team_id AS _s_team_id,
                 t.name AS _t_name
@@ -108,7 +109,7 @@ export async function GET(request: Request) {
 
     if (mode === 'uniqueRecent') {
       const rows = await dbAll<Record<string, unknown>>(
-        `SELECT a.id, a.student_id, a.recorded_by, a.status, a.created_at,
+        `SELECT a.id, a.student_id, a.recorded_by, a.status, a.created_at, a.synced_at,
                 s.full_name AS _s_full_name, s.class_name AS _s_class_name,
                 s.qr_code_id AS _s_qr_code_id, s.team_id AS _s_team_id,
                 t.name AS _t_name

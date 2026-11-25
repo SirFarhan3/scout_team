@@ -1,5 +1,6 @@
 'use client';
 
+import { useRouter } from 'next/navigation';
 import { AttendanceRecord } from '@/types/attendance';
 
 interface RecentScansListProps {
@@ -7,6 +8,7 @@ interface RecentScansListProps {
 }
 
 export default function RecentScansList({ recentScans }: RecentScansListProps) {
+  const router = useRouter();
   return (
     <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100 space-y-4 flex flex-col justify-between">
       <div className="space-y-4">
@@ -36,7 +38,19 @@ export default function RecentScansList({ recentScans }: RecentScansListProps) {
                   </p>
                 </div>
 
-                <div className="text-right">
+                <div className="text-right flex items-center gap-1.5 shrink-0">
+                  {scan.isOfflinePending ? (
+                    <span className="text-[9px] font-extrabold uppercase bg-amber-100 text-amber-800 px-2 py-0.5 rounded-full border border-amber-200">
+                      Offline
+                    </span>
+                  ) : scan.synced_at ? (
+                    <span
+                      title={`Disinkronkan pada ${new Date(scan.synced_at).toLocaleString('id-ID')}`}
+                      className="text-[9px] font-extrabold uppercase bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full border border-emerald-200"
+                    >
+                      Synced
+                    </span>
+                  ) : null}
                   <span className="text-[10px] font-mono font-bold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded border border-indigo-100">
                     {new Date(scan.created_at).toLocaleTimeString('id-ID', {
                       hour: '2-digit',
@@ -51,7 +65,7 @@ export default function RecentScansList({ recentScans }: RecentScansListProps) {
       </div>
 
       <button
-        onClick={() => (window.location.href = '/manajemen/siswa')}
+        onClick={() => router.push('/manajemen/siswa')}
         className="w-full bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold py-3 rounded-2xl transition border border-slate-200 mt-4"
       >
         Manajemen Siswa

@@ -85,6 +85,11 @@ async function main() {
       // Kolom ai_tokens sudah ada
     }
     try {
+      await client.execute('ALTER TABLE attendance ADD COLUMN synced_at TEXT');
+    } catch {
+      // Kolom synced_at sudah ada
+    }
+    try {
       await client.execute(`
         UPDATE schools
         SET

@@ -1,0 +1,25 @@
+{
+  "name": "ScoutFN — Scout Management Portal",
+  "short_name": "ScoutFN",
+  "description": "Platform Manajemen Kepramukaan, Presensi QR Offline-Ready, Translasi Sandi & Laporan Gugusdepan Sekolah",
+  "start_url": "/scan",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#f5f7fc",
+  "theme_color": "#5b5fc7",
+  "lang": "id",
+  "icons": [
+    {
+      "src": "/app_logo.jpg",
+      "sizes": "192x192",
+      "type": "image/jpeg",
+      "purpose": "any"
+    },
+    {
+      "src": "/app_logo.jpg",
+      "sizes": "512x512",
+      "type": "image/jpeg",
+      "purpose": "any"
+    }
+  ]
+}
